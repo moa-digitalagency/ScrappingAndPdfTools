@@ -2,27 +2,32 @@ import os
 import requests
 import zipfile
 import uuid
+import time
+import logging
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-def download_pdfs_and_zip(urls, temp_folder):
-    temp_dir = os.path.join(temp_folder, str(uuid.uuid4()))
-    os.makedirs(temp_dir, exist_ok=True)
-    
-    successful = 0
-    failed = 0
-    failed_urls = []
-    
-    for idx, url in enumerate(urls, 1):
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def download_single_pdf(url, idx, temp_dir, max_retries=3):
+    """Télécharge un seul PDF avec retry logic"""
+    for attempt in range(max_retries):
         try:
-            response = requests.get(url, timeout=30, stream=True)
+            logger.info(f"Téléchargement {idx}: {url} (tentative {attempt + 1}/{max_retries})")
+            
+            response = requests.get(
+                url, 
+                timeout=300,
+                stream=True,
+                headers={'User-Agent': 'Mozilla/5.0 PDF Downloader'}
+            )
             response.raise_for_status()
             
             content_type = response.headers.get('content-type', '').lower()
             if 'pdf' not in content_type and not url.lower().endswith('.pdf'):
-                failed += 1
-                failed_urls.append({'url': url, 'error': 'Not a PDF file'})
-                continue
+                return {'success': False, 'url': url, 'error': 'Not a PDF file'}
             
             filename = f'document_{idx}.pdf'
             if url.split('/')[-1]:
@@ -37,13 +42,47 @@ def download_pdfs_and_zip(urls, temp_folder):
             
             with open(file_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+                    if chunk:
+                        f.write(chunk)
             
-            successful += 1
+            logger.info(f"Téléchargement {idx} réussi: {filename}")
+            return {'success': True, 'url': url, 'filename': filename}
             
         except Exception as e:
-            failed += 1
-            failed_urls.append({'url': url, 'error': str(e)})
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt
+                logger.warning(f"Erreur téléchargement {idx}, nouvelle tentative dans {wait_time}s: {str(e)}")
+                time.sleep(wait_time)
+            else:
+                logger.error(f"Échec téléchargement {idx} après {max_retries} tentatives: {str(e)}")
+                return {'success': False, 'url': url, 'error': str(e)}
+    
+    return {'success': False, 'url': url, 'error': 'Max retries reached'}
+
+def download_pdfs_and_zip(urls, temp_folder, max_workers=10):
+    """Télécharge des PDFs en parallèle avec support pour 10,000+ documents"""
+    temp_dir = os.path.join(temp_folder, str(uuid.uuid4()))
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    successful = 0
+    failed = 0
+    failed_urls = []
+    
+    logger.info(f"Début du téléchargement de {len(urls)} PDFs avec {max_workers} workers")
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_url = {
+            executor.submit(download_single_pdf, url, idx, temp_dir): (url, idx) 
+            for idx, url in enumerate(urls, 1)
+        }
+        
+        for future in as_completed(future_to_url):
+            result = future.result()
+            if result['success']:
+                successful += 1
+            else:
+                failed += 1
+                failed_urls.append({'url': result['url'], 'error': result.get('error', 'Unknown error')})
     
     if successful == 0:
         return {

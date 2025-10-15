@@ -1,10 +1,13 @@
 import os
 import zipfile
 import uuid
+import logging
 from datetime import datetime
 from pypdf import PdfWriter, PdfReader
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from app.services.pdf_analyzer import analyze_pdfs_and_create_database
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def merge_pdfs_from_zip(zip_path, temp_folder):
     temp_dir = os.path.join(temp_folder, str(uuid.uuid4()))
@@ -67,47 +70,17 @@ def merge_pdfs_from_zip(zip_path, temp_folder):
     
     merger.close()
     
-    excel_filename = f'manifest_{unique_id}.xlsx'
-    excel_path = os.path.join(temp_folder, excel_filename)
+    logger.info(f"Début de l'analyse intelligente de {len(pdf_files)} PDFs")
+    analysis_result = analyze_pdfs_and_create_database(pdf_files, temp_folder)
     
-    wb = Workbook()
-    ws = wb.active
-    ws.title = 'Manifest PDFs'
-    
-    headers = ['#', 'Nom du fichier', 'Nombre de pages', 'Statut']
-    ws.append(headers)
-    
-    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
-    header_font = Font(bold=True, color='FFFFFF')
-    
-    for cell in ws[1]:
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal='center', vertical='center')
-    
-    for item in pdf_metadata:
-        status = 'Erreur' if 'error' in item else 'OK'
-        ws.append([
-            item['index'],
-            item['filename'],
-            item['pages'],
-            status
-        ])
-    
-    ws.append([])
-    ws.append(['Total de PDFs:', len(pdf_files)])
-    ws.append(['Total de pages:', total_pages])
-    
-    for row in ws.iter_rows(min_row=len(pdf_metadata) + 2, max_row=len(pdf_metadata) + 4):
-        for cell in row:
-            cell.font = Font(bold=True)
-    
-    ws.column_dimensions['A'].width = 8
-    ws.column_dimensions['B'].width = 40
-    ws.column_dimensions['C'].width = 18
-    ws.column_dimensions['D'].width = 12
-    
-    wb.save(excel_path)
+    if not analysis_result.get('success'):
+        logger.warning(f"Analyse intelligente échouée: {analysis_result.get('error')}")
+        excel_path = None
+        excel_filename = None
+    else:
+        excel_path = analysis_result['excel_path']
+        excel_filename = analysis_result['excel_filename']
+        logger.info(f"Analyse intelligente terminée: {excel_filename}")
     
     for root, dirs, files in os.walk(temp_dir, topdown=False):
         for file in files:
@@ -122,12 +95,19 @@ def merge_pdfs_from_zip(zip_path, temp_folder):
     except:
         pass
     
-    return {
+    result = {
         'success': True,
         'pdf_path': pdf_path,
-        'excel_path': excel_path,
         'pdf_filename': pdf_filename,
-        'excel_filename': excel_filename,
         'total_pdfs': len(pdf_files),
         'total_pages': total_pages
     }
+    
+    if excel_path and excel_filename:
+        result['excel_path'] = excel_path
+        result['excel_filename'] = excel_filename
+        result['has_analysis'] = True
+    else:
+        result['has_analysis'] = False
+    
+    return result

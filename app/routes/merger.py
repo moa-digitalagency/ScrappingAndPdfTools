@@ -43,10 +43,12 @@ def process():
             
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 zipf.write(result['pdf_path'], result['pdf_filename'])
-                zipf.write(result['excel_path'], result['excel_filename'])
+                if result.get('has_analysis') and result.get('excel_path'):
+                    zipf.write(result['excel_path'], result['excel_filename'])
             
             cleanup_temp_file(result['pdf_path'])
-            cleanup_temp_file(result['excel_path'])
+            if result.get('excel_path'):
+                cleanup_temp_file(result['excel_path'])
             
             download_id = str(uuid.uuid4())
             downloads_registry[download_id] = {
