@@ -12,55 +12,92 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def download_single_pdf(url, idx, temp_dir, max_retries=3):
-    """Télécharge un seul PDF avec retry logic"""
+    """Télécharge un seul PDF avec retry logic et gestion robuste des erreurs"""
     for attempt in range(max_retries):
+        response = None
         try:
-            logger.info(f"Téléchargement {idx}: {url} (tentative {attempt + 1}/{max_retries})")
+            logger.info(f"Téléchargement {idx}: {url[:100]}... (tentative {attempt + 1}/{max_retries})")
             
             response = requests.get(
                 url, 
-                timeout=300,
+                timeout=(30, 300),
                 stream=True,
-                headers={'User-Agent': 'Mozilla/5.0 PDF Downloader'}
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'application/pdf,*/*'
+                },
+                allow_redirects=True
             )
             response.raise_for_status()
             
             content_type = response.headers.get('content-type', '').lower()
             if 'pdf' not in content_type and not url.lower().endswith('.pdf'):
-                return {'success': False, 'url': url, 'error': 'Not a PDF file'}
+                logger.warning(f"Document {idx} n'est pas un PDF (type: {content_type})")
+                return {'success': False, 'url': url, 'error': f'Type non-PDF: {content_type}'}
             
-            filename = f'document_{idx}.pdf'
+            filename = f'document_{str(idx).zfill(6)}.pdf'
             if url.split('/')[-1]:
                 try:
-                    filename = secure_filename(url.split('/')[-1])
-                    if not filename.endswith('.pdf'):
-                        filename += '.pdf'
-                except:
-                    pass
+                    url_filename = url.split('/')[-1].split('?')[0]
+                    if url_filename:
+                        filename = secure_filename(url_filename)
+                        if not filename.lower().endswith('.pdf'):
+                            filename += '.pdf'
+                        filename = f"{str(idx).zfill(6)}_{filename}"
+                except Exception as e:
+                    logger.debug(f"Nom de fichier par défaut pour {idx}: {e}")
             
             file_path = os.path.join(temp_dir, filename)
             
+            total_size = 0
             with open(file_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
+                for chunk in response.iter_content(chunk_size=32768):
                     if chunk:
                         f.write(chunk)
+                        total_size += len(chunk)
             
-            logger.info(f"Téléchargement {idx} réussi: {filename}")
-            return {'success': True, 'url': url, 'filename': filename}
+            if total_size < 100:
+                os.remove(file_path)
+                return {'success': False, 'url': url, 'error': 'Fichier trop petit (probablement vide)'}
             
-        except Exception as e:
+            logger.info(f"Téléchargement {idx} réussi: {filename} ({total_size} bytes)")
+            return {'success': True, 'url': url, 'filename': filename, 'size': total_size}
+            
+        except requests.exceptions.Timeout:
+            error_msg = 'Timeout de connexion'
+            logger.warning(f"Timeout pour {idx}: {url[:100]}")
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt
-                logger.warning(f"Erreur téléchargement {idx}, nouvelle tentative dans {wait_time}s: {str(e)}")
+                wait_time = min(2 ** attempt, 10)
+                logger.info(f"Nouvelle tentative dans {wait_time}s")
                 time.sleep(wait_time)
             else:
-                logger.error(f"Échec téléchargement {idx} après {max_retries} tentatives: {str(e)}")
-                return {'success': False, 'url': url, 'error': str(e)}
+                return {'success': False, 'url': url, 'error': error_msg}
+                
+        except requests.exceptions.RequestException as e:
+            error_msg = f'Erreur réseau: {str(e)[:100]}'
+            logger.warning(f"Erreur réseau pour {idx}: {str(e)[:100]}")
+            if attempt < max_retries - 1:
+                wait_time = min(2 ** attempt, 10)
+                time.sleep(wait_time)
+            else:
+                return {'success': False, 'url': url, 'error': error_msg}
+                
+        except Exception as e:
+            error_msg = f'Erreur: {str(e)[:100]}'
+            logger.error(f"Erreur inattendue pour {idx}: {str(e)[:100]}")
+            if attempt < max_retries - 1:
+                wait_time = min(2 ** attempt, 10)
+                time.sleep(wait_time)
+            else:
+                return {'success': False, 'url': url, 'error': error_msg}
+        finally:
+            if response:
+                response.close()
     
-    return {'success': False, 'url': url, 'error': 'Max retries reached'}
+    return {'success': False, 'url': url, 'error': 'Max retries atteint'}
 
-def download_pdfs_and_zip(urls, temp_folder, max_workers=10, batch_size=100):
-    """Télécharge des PDFs en parallèle avec batching réel pour 10,000+ documents"""
+def download_pdfs_and_zip(urls, temp_folder, max_workers=20, batch_size=50):
+    """Télécharge des PDFs en parallèle avec batching optimisé pour 1000+ documents"""
     temp_dir = os.path.join(temp_folder, str(uuid.uuid4()))
     os.makedirs(temp_dir, exist_ok=True)
     
@@ -70,6 +107,7 @@ def download_pdfs_and_zip(urls, temp_folder, max_workers=10, batch_size=100):
     total_urls = len(urls)
     
     logger.info(f"Début du téléchargement de {total_urls} PDFs avec {max_workers} workers, batch_size={batch_size}")
+    logger.info(f"Traitement en {(total_urls + batch_size - 1) // batch_size} batchs")
     
     for batch_start in range(0, total_urls, batch_size):
         batch_end = min(batch_start + batch_size, total_urls)

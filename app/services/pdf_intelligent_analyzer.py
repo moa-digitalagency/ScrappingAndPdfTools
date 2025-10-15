@@ -68,37 +68,46 @@ def analyze_pdf_with_openrouter(pdf_source, source_type='url', model='anthropic/
                         pdf_content,
                         {
                             "type": "text",
-                            "text": """Analysez ce document PDF et extrayez toutes les données importantes sous forme structurée.
+                            "text": """Analysez EN DÉTAIL ce document PDF et extrayez TOUTES les données présentes, y compris le texte, les tableaux, les chiffres, et toutes les informations importantes.
 
-Veuillez extraire :
-1. Les informations principales (titre, date, auteur, entreprise, etc.)
-2. Toutes les tables de données présentes
-3. Les informations clés du document
-4. Les chiffres et métriques importants
+IMPORTANT : 
+- Lisez TOUTES les pages du document
+- Extrayez TOUS les tableaux que vous trouvez
+- Récupérez TOUS les champs de données structurés
+- N'omettez aucune information importante
+- Si le document contient des formulaires, extrayez tous les champs
 
-Retournez les données au format JSON avec cette structure :
+Retournez les données au format JSON avec cette structure EXACTE :
 {
     "metadata": {
-        "titre": "titre du document",
+        "titre": "titre complet du document",
         "date": "date si disponible",
         "auteur": "auteur si disponible",
-        "entreprise": "entreprise si disponible"
+        "entreprise": "entreprise/organisation si disponible",
+        "type_document": "type de document (facture, contrat, rapport, etc.)",
+        "numero_pages": "nombre de pages"
     },
     "tables": [
         {
-            "nom": "nom de la table",
-            "colonnes": ["col1", "col2", ...],
+            "nom": "titre/description de la table",
+            "page": "numéro de page où se trouve la table",
+            "colonnes": ["nom_colonne1", "nom_colonne2", "nom_colonne3"],
             "lignes": [
-                ["val1", "val2", ...],
-                ...
+                ["valeur1", "valeur2", "valeur3"],
+                ["valeur1", "valeur2", "valeur3"]
             ]
         }
     ],
     "informations_cles": {
-        "cle1": "valeur1",
-        "cle2": "valeur2"
-    }
-}"""
+        "section1": "contenu de la section 1",
+        "section2": "contenu de la section 2",
+        "montant_total": "montant si applicable",
+        "reference": "numéro de référence si applicable"
+    },
+    "texte_complet": "résumé du contenu textuel principal du document"
+}
+
+Assurez-vous d'extraire TOUTES les tables et TOUTES les données structurées présentes dans le document."""
                         }
                     ]
                 }
@@ -118,16 +127,74 @@ Retournez les données au format JSON avec cette structure :
         # Chercher un bloc JSON dans la réponse
         json_match = re.search(r'\{.*\}', content, re.DOTALL)
         if json_match:
-            extracted_data = json.loads(json_match.group())
-            return {
-                'success': True,
-                'data': extracted_data,
-                'raw_response': content
-            }
+            try:
+                extracted_data = json.loads(json_match.group())
+                
+                # S'assurer que les champs requis existent avec des valeurs par défaut
+                if 'metadata' not in extracted_data:
+                    extracted_data['metadata'] = {}
+                
+                metadata_defaults = {
+                    'titre': '',
+                    'date': '',
+                    'auteur': '',
+                    'entreprise': '',
+                    'type_document': '',
+                    'numero_pages': ''
+                }
+                for key, default_val in metadata_defaults.items():
+                    if key not in extracted_data['metadata']:
+                        extracted_data['metadata'][key] = default_val
+                
+                if 'tables' not in extracted_data:
+                    extracted_data['tables'] = []
+                if 'informations_cles' not in extracted_data:
+                    extracted_data['informations_cles'] = {}
+                if 'texte_complet' not in extracted_data:
+                    extracted_data['texte_complet'] = content[:1000] if len(content) > 1000 else content
+                
+                return {
+                    'success': True,
+                    'data': extracted_data,
+                    'raw_response': content
+                }
+            except json.JSONDecodeError as e:
+                logger.warning(f"Erreur de parsing JSON: {str(e)}")
+                # Retourner une structure par défaut avec le contenu brut
+                return {
+                    'success': True,
+                    'data': {
+                        'metadata': {
+                            'titre': '',
+                            'date': '',
+                            'auteur': '',
+                            'entreprise': '',
+                            'type_document': '',
+                            'numero_pages': ''
+                        },
+                        'tables': [],
+                        'informations_cles': {},
+                        'texte_complet': content[:1000] if len(content) > 1000 else content
+                    },
+                    'raw_response': content
+                }
         else:
+            # Pas de JSON trouvé, retourner une structure par défaut
             return {
                 'success': True,
-                'data': {'text': content},
+                'data': {
+                    'metadata': {
+                        'titre': '',
+                        'date': '',
+                        'auteur': '',
+                        'entreprise': '',
+                        'type_document': '',
+                        'numero_pages': ''
+                    },
+                    'tables': [],
+                    'informations_cles': {},
+                    'texte_complet': content[:1000] if len(content) > 1000 else content
+                },
                 'raw_response': content
             }
             
@@ -211,7 +278,7 @@ def create_excel_from_analysis(analysis_results, temp_folder):
         # Récupérer la feuille active et la renommer
         summary_sheet = wb.active
         summary_sheet.title = "Synthèse"  # type: ignore
-        summary_sheet.append(['Index', 'Source', 'Statut', 'Titre', 'Date', 'Auteur'])  # type: ignore
+        summary_sheet.append(['Index', 'Source', 'Statut', 'Titre', 'Type', 'Date', 'Auteur', 'Entreprise', 'Pages'])  # type: ignore
         
         for result in analysis_results:
             if result['success']:
@@ -224,8 +291,11 @@ def create_excel_from_analysis(analysis_results, temp_folder):
                     source,
                     'Succès',
                     metadata.get('titre', ''),
+                    metadata.get('type_document', ''),
                     metadata.get('date', ''),
-                    metadata.get('auteur', '')
+                    metadata.get('auteur', ''),
+                    metadata.get('entreprise', ''),
+                    metadata.get('numero_pages', '')
                 ])
                 
                 # Créer des feuilles pour chaque table trouvée
@@ -256,6 +326,14 @@ def create_excel_from_analysis(analysis_results, temp_folder):
                     info_sheet.append(['Clé', 'Valeur'])
                     for key, value in info_keys.items():
                         info_sheet.append([key, str(value)])
+                
+                # Créer une feuille pour le texte complet
+                texte_complet = data.get('texte_complet', '')
+                if texte_complet:
+                    text_sheet_name = f"PDF_{result['index']}_Texte"[:31]
+                    text_sheet = wb.create_sheet(text_sheet_name)
+                    text_sheet.append(['Texte Complet'])
+                    text_sheet.append([texte_complet])
             else:
                 source = result.get('url') or result.get('filename', 'N/A')
                 summary_sheet.append([  # type: ignore
