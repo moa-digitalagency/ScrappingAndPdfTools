@@ -50,11 +50,14 @@ DEPLOYMENT.md         # Guide de déploiement
 ## Fonctionnalités
 
 ### 1. Téléchargement Massif & ZIP
-- **10,000+ documents supportés** avec traitement par batch de 100 URLs
-- **Téléchargement parallèle** : 10 workers simultanés avec ThreadPoolExecutor
-- **Retry automatique** : 3 tentatives avec backoff exponentiel
-- **Timeout étendu** : 300 secondes par document
-- **Gestion robuste des erreurs** : logs détaillés et rapports d'échec
+- **10,000+ documents supportés** avec traitement par batch optimisé (50 URLs par batch)
+- **Téléchargement parallèle** : 20 workers simultanés avec ThreadPoolExecutor
+- **Retry automatique** : 3 tentatives avec backoff exponentiel plafonné à 10s
+- **Timeout optimisé** : (30, 300) secondes (connexion, lecture) par document
+- **Gestion robuste des erreurs** : logs détaillés, gestion par type d'erreur, rapports d'échec
+- **Double entrée** : Coller des liens texte OU uploader un fichier CSV
+- **Validation des fichiers** : Vérification de la taille (min 100 bytes)
+- **Noms de fichiers sécurisés** : Numérotation avec zfill(6) pour éviter les conflits
 - Nettoyage automatique du ZIP après téléchargement
 
 ### 2. Fusion de PDFs
@@ -90,22 +93,33 @@ DEPLOYMENT.md         # Guide de déploiement
 - **Nettoyage automatique**: Tous les fichiers temporaires sont supprimés après traitement
 
 ## Performance & Robustesse
-- **Téléchargement massif**: Support pour 10,000+ documents via batching (100 URLs par batch)
+- **Téléchargement massif**: Support pour 1000+ documents via batching optimisé (50 URLs par batch)
 - **Upload illimité**: Aucune restriction de taille grâce au streaming et suppression de MAX_CONTENT_LENGTH
-- **Parallélisation**: 10 workers simultanés pour téléchargements optimisés
-- **Retry logic**: 3 tentatives avec backoff exponentiel (2^n secondes)
-- **Timeout**: 300 secondes par document pour téléchargements fiables
+- **Parallélisation**: 20 workers simultanés pour téléchargements optimisés
+- **Retry logic**: 3 tentatives avec backoff exponentiel plafonné à 10s
+- **Timeout**: (30, 300) secondes (connexion, lecture) pour téléchargements fiables
+- **Gestion d'erreurs robuste**: Validation des fichiers, gestion par type d'exception, fallbacks garantis
 
 ## Configuration Requise
 - **SECRET_KEY**: Clé secrète Flask (obligatoire)
-- **OPENROUTER_API_KEY**: Clé API OpenRouter pour analyse intelligente (optionnel)
-  - Si non configurée, l'analyse IA sera désactivée mais les autres fonctionnalités continueront de fonctionner
+- **OPENROUTER_API_KEY**: Clé API OpenRouter pour analyse intelligente (OBLIGATOIRE)
+  - Nécessaire pour l'analyse IA des PDFs
+  - Disponible sur https://openrouter.ai/
 
 ## Préférences Utilisateur
 - Interface en français
 - Interface professionnelle avec Tailwind CSS
 
 ## Changements Récents
+- **15 octobre 2025 (Version 3.1 - Améliorations UX et Robustesse)** :
+  - ✅ **Layout responsive amélioré** : 2 blocs en colonnes (Télécharger & Fusionner) + Analyse IA en bas pleine largeur
+  - ✅ **Option CSV pour le téléchargeur** : Possibilité de coller des liens OU uploader un fichier CSV
+  - ✅ **Robustesse 1000+ liens** : Batching optimisé (50/batch), 20 workers, timeout tuple, retry plafonné
+  - ✅ **Extraction PDF complète** : Prompt IA amélioré pour extraire TOUS les éléments (tableaux, texte, métadonnées)
+  - ✅ **Gestion d'erreur robuste** : Valeurs par défaut garanties, fallbacks JSON, aucune KeyError possible
+  - ✅ **Excel enrichi** : Colonnes Type, Entreprise, Pages + feuille de texte complet pour chaque PDF
+  - ✅ **Validation des fichiers** : Vérification de taille, noms sécurisés, gestion des erreurs par type
+  
 - **15 octobre 2025 (Version 3.0 - Analyse Intelligente par IA)** :
   - ✅ Nouvelle fonctionnalité d'analyse intelligente de PDF avec OpenRouter API
   - ✅ Support de 3 types d'inputs : CSV de liens, ZIP de PDFs, un seul PDF
