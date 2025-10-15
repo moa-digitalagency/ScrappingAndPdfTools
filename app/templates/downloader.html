@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Télécharger & Zipper - PDF Tools{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-gray-800 mb-3">
+            <i class="fas fa-download text-blue-600 mr-3"></i>Télécharger & Zipper des PDFs
+        </h1>
+        <p class="text-gray-600">Entrez une liste d'URLs de PDFs pour les télécharger et les compresser en un seul fichier ZIP</p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-xl p-8">
+        <form id="downloadForm">
+            <div class="mb-6">
+                <label for="urls" class="block text-lg font-semibold text-gray-700 mb-3">
+                    <i class="fas fa-link text-blue-600 mr-2"></i>Liste des URLs (une par ligne)
+                </label>
+                <textarea 
+                    id="urls" 
+                    rows="10" 
+                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring focus:ring-blue-200 transition"
+                    placeholder="https://exemple.com/document1.pdf&#10;https://exemple.com/document2.pdf&#10;https://exemple.com/document3.pdf"
+                ></textarea>
+                <p class="mt-2 text-sm text-gray-500">
+                    <i class="fas fa-info-circle mr-1"></i>Entrez une URL par ligne. Les URLs doivent pointer vers des fichiers PDF.
+                </p>
+            </div>
+
+            <button 
+                type="submit" 
+                id="submitBtn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
+            >
+                <i class="fas fa-download mr-2"></i>Télécharger et Zipper
+            </button>
+        </form>
+
+        <div id="loadingSection" class="hidden mt-8">
+            <div class="flex items-center justify-center space-x-3 text-blue-600">
+                <i class="fas fa-spinner fa-spin text-3xl"></i>
+                <span class="text-lg font-semibold">Téléchargement et compression en cours...</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3 mt-4">
+                <div class="bg-blue-600 h-3 rounded-full animate-pulse" style="width: 100%"></div>
+            </div>
+        </div>
+
+        <div id="resultSection" class="hidden mt-8">
+            <div class="bg-green-50 border-2 border-green-200 rounded-lg p-6">
+                <h3 class="text-xl font-bold text-green-800 mb-4">
+                    <i class="fas fa-check-circle mr-2"></i>Traitement terminé !
+                </h3>
+                <div id="resultStats" class="text-gray-700 mb-4"></div>
+                <a 
+                    id="downloadLink" 
+                    href="#" 
+                    class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition"
+                >
+                    <i class="fas fa-file-archive mr-2"></i>Télécharger le ZIP
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8 bg-blue-50 rounded-lg p-6">
+        <h3 class="font-bold text-lg text-blue-800 mb-3">
+            <i class="fas fa-lightbulb mr-2"></i>Conseils
+        </h3>
+        <ul class="list-disc list-inside text-gray-700 space-y-2">
+            <li>Assurez-vous que les URLs sont accessibles publiquement</li>
+            <li>Les URLs doivent pointer vers des fichiers PDF</li>
+            <li>Le temps de traitement dépend du nombre et de la taille des fichiers</li>
+            <li>Les fichiers téléchargés seront automatiquement renommés si nécessaire</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('downloadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const urlsText = document.getElementById('urls').value;
+        const urls = urlsText.split('\n').map(url => url.trim()).filter(url => url);
+        
+        if (urls.length === 0) {
+            showToast('Veuillez entrer au moins une URL', 'error');
+            return;
+        }
+        
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('loadingSection').classList.remove('hidden');
+        document.getElementById('resultSection').classList.add('hidden');
+        
+        try {
+            const response = await fetch('/downloader/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ urls: urls })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('resultStats').innerHTML = `
+                    <p class="mb-2"><strong>Total d'URLs:</strong> ${data.total}</p>
+                    <p class="mb-2"><strong>Téléchargements réussis:</strong> ${data.successful}</p>
+                    <p class="mb-2"><strong>Échecs:</strong> ${data.failed}</p>
+                    <p class="mb-2"><strong>Fichier:</strong> ${data.filename}</p>
+                `;
+                
+                document.getElementById('downloadLink').href = `/downloader/download/${data.download_id}`;
+                document.getElementById('resultSection').classList.remove('hidden');
+                showToast('Traitement terminé avec succès !', 'success');
+            } else {
+                showToast('Erreur: ' + data.error, 'error');
+            }
+        } catch (error) {
+            showToast('Erreur de connexion: ' + error.message, 'error');
+        } finally {
+            document.getElementById('loadingSection').classList.add('hidden');
+            document.getElementById('submitBtn').disabled = false;
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Traitement de PDFs{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center">
+                        <i class="fas fa-file-pdf text-3xl text-red-600 mr-3"></i>
+                        <span class="text-2xl font-bold text-gray-800">PDF Tools</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/downloader/" class="px-4 py-2 rounded-lg text-gray-700 hover:bg-blue-50 transition">
+                        <i class="fas fa-download mr-2"></i>Télécharger & Zipper
+                    </a>
+                    <a href="/merger/" class="px-4 py-2 rounded-lg text-gray-700 hover:bg-blue-50 transition">
+                        <i class="fas fa-compress mr-2"></i>Fusionner PDFs
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {% block content %}{% endblock %}
+    </main>
+
+    <div id="toast" class="fixed top-5 right-5 max-w-md hidden z-50">
+        <div id="toast-content" class="px-6 py-4 rounded-lg shadow-lg"></div>
+    </div>
+
+    <script>
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const content = document.getElementById('toast-content');
+            
+            const colors = {
+                success: 'bg-green-500 text-white',
+                error: 'bg-red-500 text-white',
+                info: 'bg-blue-500 text-white',
+                warning: 'bg-yellow-500 text-white'
+            };
+            
+            content.className = `px-6 py-4 rounded-lg shadow-lg ${colors[type]}`;
+            content.innerHTML = message;
+            toast.classList.remove('hidden');
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 5000);
+        }
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>
