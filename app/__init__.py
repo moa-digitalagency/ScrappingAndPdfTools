@@ -1,9 +1,28 @@
-from flask import Flask
+import os
+import tempfile
+from flask import Flask, Request
 from config import Config
+
+class StreamingRequest(Request):
+    """Request personnalisée pour streaming upload direct vers disque"""
+    
+    @property
+    def stream_factory(self):
+        """Factory pour écrire uploads directement sur disque sans buffer mémoire"""
+        def factory(total_content_length, filename, content_type, content_length=None):
+            tmpfile = tempfile.NamedTemporaryFile(
+                delete=False, 
+                dir=Config.TEMP_FOLDER, 
+                suffix='.upload',
+                prefix='stream_'
+            )
+            return tmpfile
+        return factory
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+    app.request_class = StreamingRequest
     Config.init_app(app)
     
     from app.routes import downloader, merger

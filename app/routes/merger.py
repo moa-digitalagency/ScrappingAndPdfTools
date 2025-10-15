@@ -21,16 +21,23 @@ def process():
     
     file = request.files['zip_file']
     
-    if file.filename == '':
+    if not file.filename or file.filename == '':
         return jsonify({'success': False, 'error': 'Aucun fichier sélectionné'}), 400
     
     if not file.filename.lower().endswith('.zip'):
         return jsonify({'success': False, 'error': 'Le fichier doit être un ZIP'}), 400
     
     try:
-        filename = secure_filename(file.filename)
+        filename = secure_filename(file.filename) if file.filename else 'upload.zip'
         upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], str(uuid.uuid4()) + '_' + filename)
-        file.save(upload_path)
+        
+        chunk_size = 8192
+        with open(upload_path, 'wb') as f:
+            while True:
+                chunk = file.stream.read(chunk_size)
+                if not chunk:
+                    break
+                f.write(chunk)
         
         result = merge_pdfs_from_zip(upload_path, current_app.config['TEMP_FOLDER'])
         

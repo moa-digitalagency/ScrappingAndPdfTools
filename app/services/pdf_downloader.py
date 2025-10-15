@@ -59,30 +59,39 @@ def download_single_pdf(url, idx, temp_dir, max_retries=3):
     
     return {'success': False, 'url': url, 'error': 'Max retries reached'}
 
-def download_pdfs_and_zip(urls, temp_folder, max_workers=10):
-    """Télécharge des PDFs en parallèle avec support pour 10,000+ documents"""
+def download_pdfs_and_zip(urls, temp_folder, max_workers=10, batch_size=100):
+    """Télécharge des PDFs en parallèle avec batching réel pour 10,000+ documents"""
     temp_dir = os.path.join(temp_folder, str(uuid.uuid4()))
     os.makedirs(temp_dir, exist_ok=True)
     
     successful = 0
     failed = 0
     failed_urls = []
+    total_urls = len(urls)
     
-    logger.info(f"Début du téléchargement de {len(urls)} PDFs avec {max_workers} workers")
+    logger.info(f"Début du téléchargement de {total_urls} PDFs avec {max_workers} workers, batch_size={batch_size}")
     
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_url = {
-            executor.submit(download_single_pdf, url, idx, temp_dir): (url, idx) 
-            for idx, url in enumerate(urls, 1)
-        }
+    for batch_start in range(0, total_urls, batch_size):
+        batch_end = min(batch_start + batch_size, total_urls)
+        batch_urls = urls[batch_start:batch_end]
         
-        for future in as_completed(future_to_url):
-            result = future.result()
-            if result['success']:
-                successful += 1
-            else:
-                failed += 1
-                failed_urls.append({'url': result['url'], 'error': result.get('error', 'Unknown error')})
+        logger.info(f"Traitement batch {batch_start//batch_size + 1}: URLs {batch_start+1} à {batch_end}")
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_url = {
+                executor.submit(download_single_pdf, url, idx, temp_dir): (url, idx) 
+                for idx, url in enumerate(batch_urls, batch_start + 1)
+            }
+            
+            for future in as_completed(future_to_url):
+                result = future.result()
+                if result['success']:
+                    successful += 1
+                else:
+                    failed += 1
+                    failed_urls.append({'url': result['url'], 'error': result.get('error', 'Unknown error')})
+        
+        logger.info(f"Batch terminé: {successful} succès, {failed} échecs sur {batch_end} URLs traitées")
     
     if successful == 0:
         return {
