@@ -96,7 +96,7 @@ def download_single_pdf(url, idx, temp_dir, max_retries=3):
     
     return {'success': False, 'url': url, 'error': 'Max retries atteint'}
 
-def download_pdfs_and_zip(urls, temp_folder, max_workers=20, batch_size=50):
+def download_pdfs_and_zip(urls, temp_folder, max_workers=5, batch_size=20):
     """Télécharge des PDFs en parallèle avec batching optimisé pour 1000+ documents"""
     temp_dir = os.path.join(temp_folder, str(uuid.uuid4()))
     os.makedirs(temp_dir, exist_ok=True)
