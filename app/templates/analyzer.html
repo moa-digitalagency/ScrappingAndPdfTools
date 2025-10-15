@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Analyse Intelligente - PDF Tools{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-gray-800 mb-3">
+            <i class="fas fa-brain text-indigo-600 mr-3"></i>Analyse Intelligente de PDFs
+        </h1>
+        <p class="text-gray-600">Utilisez l'IA pour extraire automatiquement les données de vos PDFs et créer un fichier Excel</p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-xl p-8">
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button 
+                class="tab-button px-6 py-3 font-semibold transition border-b-2 border-indigo-600 text-indigo-600" 
+                data-tab="csv"
+            >
+                <i class="fas fa-file-csv mr-2"></i>CSV de liens
+            </button>
+            <button 
+                class="tab-button px-6 py-3 font-semibold transition border-b-2 border-transparent text-gray-500 hover:text-gray-700" 
+                data-tab="zip"
+            >
+                <i class="fas fa-file-archive mr-2"></i>ZIP de PDFs
+            </button>
+            <button 
+                class="tab-button px-6 py-3 font-semibold transition border-b-2 border-transparent text-gray-500 hover:text-gray-700" 
+                data-tab="single"
+            >
+                <i class="fas fa-file-pdf mr-2"></i>Un seul PDF
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <form id="analyzerForm">
+            <!-- CSV Tab -->
+            <div class="tab-content" data-tab="csv">
+                <div class="mb-6">
+                    <label for="csv_file" class="block text-lg font-semibold text-gray-700 mb-3">
+                        <i class="fas fa-upload text-indigo-600 mr-2"></i>Fichier CSV contenant les liens PDF
+                    </label>
+                    <input 
+                        type="file" 
+                        id="csv_file" 
+                        name="csv_file"
+                        accept=".csv"
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 transition"
+                    />
+                    <p class="mt-2 text-sm text-gray-500">
+                        <i class="fas fa-info-circle mr-1"></i>Le fichier CSV doit contenir une URL de PDF par ligne (première colonne).
+                    </p>
+                </div>
+            </div>
+
+            <!-- ZIP Tab -->
+            <div class="tab-content hidden" data-tab="zip">
+                <div class="mb-6">
+                    <label for="zip_file" class="block text-lg font-semibold text-gray-700 mb-3">
+                        <i class="fas fa-upload text-indigo-600 mr-2"></i>Fichier ZIP contenant les PDFs
+                    </label>
+                    <input 
+                        type="file" 
+                        id="zip_file" 
+                        name="zip_file"
+                        accept=".zip"
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 transition"
+                    />
+                    <p class="mt-2 text-sm text-gray-500">
+                        <i class="fas fa-info-circle mr-1"></i>Le fichier ZIP doit contenir uniquement des fichiers PDF.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Single PDF Tab -->
+            <div class="tab-content hidden" data-tab="single">
+                <div class="mb-6">
+                    <label for="pdf_file" class="block text-lg font-semibold text-gray-700 mb-3">
+                        <i class="fas fa-upload text-indigo-600 mr-2"></i>Fichier PDF à analyser
+                    </label>
+                    <input 
+                        type="file" 
+                        id="pdf_file" 
+                        name="pdf_file"
+                        accept=".pdf"
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 transition"
+                    />
+                    <p class="mt-2 text-sm text-gray-500">
+                        <i class="fas fa-info-circle mr-1"></i>Sélectionnez un fichier PDF pour l'analyser avec l'IA.
+                    </p>
+                </div>
+            </div>
+
+            <input type="hidden" id="input_type" name="input_type" value="csv">
+
+            <button 
+                type="submit" 
+                id="submitBtn"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
+            >
+                <i class="fas fa-brain mr-2"></i>Analyser avec l'IA
+            </button>
+        </form>
+
+        <div id="loadingSection" class="hidden mt-8">
+            <div class="flex items-center justify-center space-x-3 text-indigo-600">
+                <i class="fas fa-spinner fa-spin text-3xl"></i>
+                <span class="text-lg font-semibold">Analyse intelligente en cours...</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3 mt-4">
+                <div class="bg-indigo-600 h-3 rounded-full animate-pulse" style="width: 100%"></div>
+            </div>
+            <p class="text-center text-gray-600 mt-4">
+                <i class="fas fa-info-circle mr-1"></i>L'analyse peut prendre quelques minutes selon le nombre de PDFs.
+            </p>
+        </div>
+
+        <div id="resultSection" class="hidden mt-8">
+            <div class="bg-green-50 border-2 border-green-200 rounded-lg p-6">
+                <h3 class="text-xl font-bold text-green-800 mb-4">
+                    <i class="fas fa-check-circle mr-2"></i>Analyse terminée !
+                </h3>
+                <div id="resultStats" class="text-gray-700 mb-4"></div>
+                <a 
+                    id="downloadLink" 
+                    href="#" 
+                    class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition"
+                >
+                    <i class="fas fa-file-excel mr-2"></i>Télécharger le fichier Excel
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8 bg-indigo-50 rounded-lg p-6">
+        <h3 class="font-bold text-lg text-indigo-800 mb-3">
+            <i class="fas fa-lightbulb mr-2"></i>Comment ça fonctionne
+        </h3>
+        <ul class="list-disc list-inside text-gray-700 space-y-2">
+            <li>L'IA analyse chaque PDF pour extraire les données structurées</li>
+            <li>Les métadonnées (titre, date, auteur) sont automatiquement détectées</li>
+            <li>Les tableaux de données sont extraits et organisés dans des feuilles Excel</li>
+            <li>Les informations clés sont identifiées et listées</li>
+            <li>Un fichier Excel consolidé est généré avec toutes les données</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Gestion des onglets
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const inputTypeField = document.getElementById('input_type');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = button.getAttribute('data-tab');
+            
+            // Mettre à jour les boutons
+            tabButtons.forEach(btn => {
+                btn.classList.remove('border-indigo-600', 'text-indigo-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            button.classList.remove('border-transparent', 'text-gray-500');
+            button.classList.add('border-indigo-600', 'text-indigo-600');
+            
+            // Mettre à jour le contenu
+            tabContents.forEach(content => {
+                if (content.getAttribute('data-tab') === tabName) {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+            
+            // Mettre à jour le type d'input
+            inputTypeField.value = tabName;
+        });
+    });
+
+    // Gestion du formulaire
+    document.getElementById('analyzerForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const inputType = document.getElementById('input_type').value;
+        const formData = new FormData();
+        formData.append('input_type', inputType);
+        
+        let fileInput;
+        if (inputType === 'csv') {
+            fileInput = document.getElementById('csv_file');
+        } else if (inputType === 'zip') {
+            fileInput = document.getElementById('zip_file');
+        } else if (inputType === 'single') {
+            fileInput = document.getElementById('pdf_file');
+        }
+        
+        if (!fileInput.files[0]) {
+            showToast('Veuillez sélectionner un fichier', 'error');
+            return;
+        }
+        
+        formData.append(fileInput.name, fileInput.files[0]);
+        
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('loadingSection').classList.remove('hidden');
+        document.getElementById('resultSection').classList.add('hidden');
+        
+        try {
+            const response = await fetch('/analyzer/process', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('resultStats').innerHTML = `
+                    <p class="mb-2"><strong>Total de PDFs analysés:</strong> ${data.total}</p>
+                    <p class="mb-2"><strong>Analyses réussies:</strong> ${data.successful}</p>
+                    <p class="mb-2"><strong>Échecs:</strong> ${data.failed}</p>
+                    <p class="mb-2"><strong>Fichier Excel:</strong> ${data.filename}</p>
+                `;
+                
+                document.getElementById('downloadLink').href = `/analyzer/download/${data.analysis_id}`;
+                document.getElementById('resultSection').classList.remove('hidden');
+                showToast('Analyse terminée avec succès !', 'success');
+            } else {
+                showToast('Erreur: ' + data.error, 'error');
+            }
+        } catch (error) {
+            showToast('Erreur de connexion: ' + error.message, 'error');
+        } finally {
+            document.getElementById('loadingSection').classList.add('hidden');
+            document.getElementById('submitBtn').disabled = false;
+        }
+    });
+</script>
+{% endblock %}

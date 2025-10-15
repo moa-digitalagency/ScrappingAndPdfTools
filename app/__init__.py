@@ -25,9 +25,10 @@ def create_app():
     app.request_class = StreamingRequest
     Config.init_app(app)
     
-    from app.routes import downloader, merger
+    from app.routes import downloader, merger, analyzer
     app.register_blueprint(downloader.bp)
     app.register_blueprint(merger.bp)
+    app.register_blueprint(analyzer.bp)
     
     from app.routes import main
     app.register_blueprint(main.bp)
