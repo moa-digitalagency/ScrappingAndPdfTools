@@ -16,6 +16,7 @@ from werkzeug.utils import secure_filename
 from app.services.pdf_downloader import download_pdfs_and_zip
 from app.utils.storage import cleanup_temp_file, cleanup_old_temp_files
 from app.utils.progress import progress_manager
+from app.models import add_log
 
 bp = Blueprint('downloader', __name__, url_prefix='/downloader')
 
@@ -53,10 +54,26 @@ def download_worker(session_id, urls_list, temp_folder):
                 filename=result['filename'],
                 failed_urls=result.get('failed_urls', [])
             )
+            
+            # Logger le succès
+            failed_count = len(result.get('failed_urls', []))
+            success_count = result.get('success_count', 0)
+            add_log(
+                'download',
+                f'Téléchargement ZIP terminé: {success_count} fichiers réussis, {failed_count} échecs',
+                status='success'
+            )
     except Exception as e:
         progress_manager.update(session_id,
             status='error',
             message=f'Erreur: {str(e)}'
+        )
+        
+        # Logger l'erreur
+        add_log(
+            'download',
+            f'Erreur lors du téléchargement: {str(e)}',
+            status='error'
         )
 
 @bp.route('/process', methods=['POST'])
@@ -78,6 +95,13 @@ def process():
         status='analyzing',
         total=len(urls_list),
         message=f'Analyse de {len(urls_list)} URLs...'
+    )
+    
+    # Logger le démarrage du téléchargement
+    add_log(
+        'download',
+        f'Démarrage du téléchargement de {len(urls_list)} URLs',
+        status='info'
     )
     
     thread = threading.Thread(

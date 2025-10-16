@@ -16,6 +16,7 @@ from app.services.pdf_intelligent_analyzer import (
     analyze_single_pdf
 )
 from app.utils.storage import cleanup_temp_file
+from app.models import add_log
 
 bp = Blueprint('analyzer', __name__, url_prefix='/analyzer')
 
@@ -42,6 +43,13 @@ def process():
             if csv_file.filename == '':
                 return jsonify({'success': False, 'error': 'Nom de fichier CSV vide'}), 400
             
+            # Logger le démarrage
+            add_log(
+                'analyzer',
+                f'Démarrage de l\'analyse IA depuis CSV: {csv_file.filename}',
+                status='info'
+            )
+            
             csv_content = csv_file.read()
             result = analyze_pdfs_from_csv(csv_content, current_app.config['TEMP_FOLDER'])
             
@@ -53,6 +61,13 @@ def process():
             zip_file = request.files['zip_file']
             if zip_file.filename == '':
                 return jsonify({'success': False, 'error': 'Nom de fichier ZIP vide'}), 400
+            
+            # Logger le démarrage
+            add_log(
+                'analyzer',
+                f'Démarrage de l\'analyse IA depuis ZIP: {zip_file.filename}',
+                status='info'
+            )
             
             # Sauvegarder temporairement le ZIP
             zip_filename = secure_filename(zip_file.filename or 'upload.zip')
@@ -73,6 +88,13 @@ def process():
             pdf_file = request.files['pdf_file']
             if pdf_file.filename == '':
                 return jsonify({'success': False, 'error': 'Nom de fichier PDF vide'}), 400
+            
+            # Logger le démarrage
+            add_log(
+                'analyzer',
+                f'Démarrage de l\'analyse IA d\'un PDF: {pdf_file.filename}',
+                status='info'
+            )
             
             # Sauvegarder temporairement le PDF
             pdf_filename = secure_filename(pdf_file.filename or 'upload.pdf')
@@ -95,6 +117,13 @@ def process():
                 'filename': result['filename']
             }
             
+            # Logger le succès
+            add_log(
+                'analyzer',
+                f'Analyse IA terminée: {result["successful"]} PDFs analysés avec succès, {result["failed"]} échecs',
+                status='success'
+            )
+            
             return jsonify({
                 'success': True,
                 'analysis_id': analysis_id,
@@ -104,9 +133,21 @@ def process():
                 'failed': result['failed']
             })
         else:
+            # Logger l'échec
+            add_log(
+                'analyzer',
+                f'Échec de l\'analyse IA: {result.get("error", "Erreur inconnue")}',
+                status='error'
+            )
             return jsonify({'success': False, 'error': result.get('error', 'Erreur inconnue')}), 500
     
     except Exception as e:
+        # Logger l'exception
+        add_log(
+            'analyzer',
+            f'Exception lors de l\'analyse IA: {str(e)}',
+            status='error'
+        )
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/download/<analysis_id>')

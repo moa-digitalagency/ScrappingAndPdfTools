@@ -13,6 +13,7 @@ import zipfile
 from werkzeug.utils import secure_filename
 from app.services.pdf_merger import merge_pdfs_from_zip
 from app.utils.storage import cleanup_temp_file
+from app.models import add_log
 
 bp = Blueprint('merger', __name__, url_prefix='/merger')
 
@@ -36,6 +37,13 @@ def process():
         return jsonify({'success': False, 'error': 'Le fichier doit être un ZIP'}), 400
     
     try:
+        # Logger le démarrage de la fusion
+        add_log(
+            'merger',
+            f'Démarrage de la fusion de PDFs depuis {file.filename}',
+            status='info'
+        )
+        
         filename = secure_filename(file.filename) if file.filename else 'upload.zip'
         upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], str(uuid.uuid4()) + '_' + filename)
         
@@ -71,6 +79,13 @@ def process():
                 'zip_filename': zip_filename
             }
             
+            # Logger le succès
+            add_log(
+                'merger',
+                f'Fusion réussie: {result["total_pdfs"]} PDFs fusionnés ({result["total_pages"]} pages)',
+                status='success'
+            )
+            
             return jsonify({
                 'success': True,
                 'download_id': download_id,
@@ -79,9 +94,21 @@ def process():
                 'total_pages': result['total_pages']
             })
         else:
+            # Logger l'échec
+            add_log(
+                'merger',
+                f'Échec de la fusion: {result.get("error", "Erreur inconnue")}',
+                status='error'
+            )
             return jsonify({'success': False, 'error': result.get('error', 'Erreur inconnue')}), 500
             
     except Exception as e:
+        # Logger l'exception
+        add_log(
+            'merger',
+            f'Exception lors de la fusion: {str(e)}',
+            status='error'
+        )
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/download/<download_id>')
