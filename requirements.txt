@@ -40,3 +40,8 @@ psycopg2-binary
 pypdf
 requests
 werkzeug
+email_validator
+flask
+flask-sqlalchemy
+gunicorn
+psycopg2-binary
