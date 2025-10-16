@@ -1,3 +1,11 @@
+"""
+ScrappingAndPdfTools
+Developed : MOA Digital Agency LLC
+Par : Aisance KALONJI
+Mail : moa@myoneart.com
+Siteweb : www.myoneart.com
+"""
+
 from app import create_app
 
 app = create_app()

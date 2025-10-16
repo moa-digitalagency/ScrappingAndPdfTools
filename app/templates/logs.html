@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - ScrappingAndPdfTools{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-gray-800 mb-3">
+            <i class="fas fa-clipboard-list text-blue-600 mr-3"></i>Journal des Logs
+        </h1>
+        <p class="text-gray-600">Historique de toutes les actions et événements du système</p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-xl p-6 mb-6">
+        <div class="flex flex-wrap gap-4 mb-6">
+            <div class="flex items-center gap-2">
+                <label class="font-semibold text-gray-700">Type:</label>
+                <select id="typeFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tous</option>
+                    <option value="download" {% if type_filter == 'download' %}selected{% endif %}>Téléchargement</option>
+                    <option value="merge" {% if type_filter == 'merge' %}selected{% endif %}>Fusion</option>
+                    <option value="analyze" {% if type_filter == 'analyze' %}selected{% endif %}>Analyse</option>
+                    <option value="system" {% if type_filter == 'system' %}selected{% endif %}>Système</option>
+                    <option value="error" {% if type_filter == 'error' %}selected{% endif %}>Erreur</option>
+                </select>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <label class="font-semibold text-gray-700">Statut:</label>
+                <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Tous</option>
+                    <option value="success" {% if status_filter == 'success' %}selected{% endif %}>Succès</option>
+                    <option value="error" {% if status_filter == 'error' %}selected{% endif %}>Erreur</option>
+                    <option value="warning" {% if status_filter == 'warning' %}selected{% endif %}>Avertissement</option>
+                    <option value="info" {% if status_filter == 'info' %}selected{% endif %}>Info</option>
+                </select>
+            </div>
+            
+            <button onclick="applyFilters()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+                <i class="fas fa-filter mr-2"></i>Filtrer
+            </button>
+            
+            <button onclick="clearOldLogs()" class="ml-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition">
+                <i class="fas fa-trash mr-2"></i>Nettoyer les anciens logs
+            </button>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">ID</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date/Heure</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Type</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Action</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Détails</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Statut</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for log in logs %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ log.id }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ log.timestamp[:19] }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                {% if log.type == 'download' %}bg-blue-100 text-blue-800
+                                {% elif log.type == 'merge' %}bg-purple-100 text-purple-800
+                                {% elif log.type == 'analyze' %}bg-green-100 text-green-800
+                                {% elif log.type == 'error' %}bg-red-100 text-red-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ log.type }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-800">{{ log.action }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ log.details or '-' }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                {% if log.status == 'success' %}bg-green-100 text-green-800
+                                {% elif log.status == 'error' %}bg-red-100 text-red-800
+                                {% elif log.status == 'warning' %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-blue-100 text-blue-800{% endif %}">
+                                {{ log.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fas fa-inbox text-4xl mb-2"></i>
+                            <p>Aucun log disponible</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function applyFilters() {
+    const type = document.getElementById('typeFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    
+    let url = '/logs/?';
+    if (type) url += `type=${type}&`;
+    if (status) url += `status=${status}`;
+    
+    window.location.href = url;
+}
+
+async function clearOldLogs() {
+    if (!confirm('Voulez-vous vraiment supprimer les logs de plus de 30 jours ?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/logs/clear-old', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ days: 30 })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(`${data.deleted} logs supprimés avec succès`, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('Erreur lors de la suppression', 'error');
+        }
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+    }
+}
+</script>
+{% endblock %}

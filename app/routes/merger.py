@@ -1,3 +1,11 @@
+"""
+ScrappingAndPdfTools
+Developed : MOA Digital Agency LLC
+Par : Aisance KALONJI
+Mail : moa@myoneart.com
+Siteweb : www.myoneart.com
+"""
+
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app
 import os
 import uuid

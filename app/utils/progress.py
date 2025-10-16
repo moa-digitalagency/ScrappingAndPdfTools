@@ -1,3 +1,11 @@
+"""
+ScrappingAndPdfTools
+Developed : MOA Digital Agency LLC
+Par : Aisance KALONJI
+Mail : moa@myoneart.com
+Siteweb : www.myoneart.com
+"""
+
 import time
 from datetime import datetime
 from collections import defaultdict
