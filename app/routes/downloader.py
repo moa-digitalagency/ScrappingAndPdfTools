@@ -118,13 +118,30 @@ def prepare_batches():
             'download_id': None
         }
     
+    # Créer un dossier de session persistant
+    session_folder = os.path.join(current_app.config['TEMP_FOLDER'], f'session_{session_id}')
+    os.makedirs(session_folder, exist_ok=True)
+    
     batches_registry[session_id] = {
         'total_urls': len(urls_list),
         'batch_size': batch_size,
-        'batches': batches
+        'batches': batches,
+        'session_folder': session_folder
     }
     
+    # Sauvegarder la session sur disque (persistant)
+    session_file = os.path.join(session_folder, 'session.json')
+    with open(session_file, 'w') as f:
+        json.dump({
+            'session_id': session_id,
+            'total_urls': len(urls_list),
+            'batch_size': batch_size,
+            'total_batches': total_batches,
+            'batches': {str(k): {**v, 'urls': v['urls']} for k, v in batches.items()}
+        }, f)
+    
     logger.info(f"Lots préparés: {total_batches} lots pour session {session_id}")
+    logger.info(f"Session sauvegardée dans {session_folder}")
     logger.info("=" * 80)
     
     return jsonify({
@@ -153,6 +170,8 @@ def download_batch():
         return jsonify({'success': False, 'error': 'Lot invalide'}), 400
     
     batch_session_id = str(uuid.uuid4())
+    session_folder = batches_registry[session_id]['session_folder']
+    
     logger.info(f"Téléchargement lot {batch_num} de session {session_id}, batch_session {batch_session_id}")
     
     progress_manager.create_session(batch_session_id)
@@ -162,9 +181,10 @@ def download_batch():
         message=f"Téléchargement du lot {batch_num}..."
     )
     
+    # Stocker dans le dossier de session
     thread = threading.Thread(
         target=download_worker,
-        args=(batch_session_id, batch_data['urls'], current_app.config['TEMP_FOLDER'])
+        args=(batch_session_id, batch_data['urls'], session_folder)
     )
     thread.daemon = True
     thread.start()
@@ -176,6 +196,110 @@ def download_batch():
         'success': True,
         'batch_session_id': batch_session_id,
         'batch_num': batch_num
+    })
+
+@bp.route('/start_auto_download', methods=['POST'])
+def start_auto_download():
+    """Lance automatiquement tous les lots séquentiellement"""
+    logger.info("=" * 80)
+    logger.info("NOUVELLE REQUÊTE /downloader/start_auto_download")
+    
+    data = request.get_json()
+    session_id = data.get('session_id')
+    
+    if not session_id or session_id not in batches_registry:
+        return jsonify({'success': False, 'error': 'Session invalide'}), 400
+    
+    auto_session_id = str(uuid.uuid4())
+    
+    def auto_download_worker(main_session_id, auto_sess_id):
+        """Worker qui lance séquentiellement tous les lots"""
+        try:
+            session_data = batches_registry[main_session_id]
+            batches = session_data['batches']
+            session_folder = session_data['session_folder']
+            total_batches = len(batches)
+            
+            progress_manager.create_session(auto_sess_id)
+            
+            for batch_num in sorted(batches.keys()):
+                batch_data = batches[batch_num]
+                
+                # Créer une sous-session pour ce lot
+                batch_session_id = str(uuid.uuid4())
+                
+                logger.info(f"AUTO: Démarrage lot {batch_num}/{total_batches}")
+                
+                progress_manager.update(auto_sess_id,
+                    status='processing',
+                    current=batch_num,
+                    total=total_batches,
+                    message=f"Téléchargement automatique - Lot {batch_num}/{total_batches}"
+                )
+                
+                # Télécharger ce lot
+                result = download_pdfs_and_zip(
+                    batch_data['urls'],
+                    session_folder,
+                    session_id=batch_session_id
+                )
+                
+                if result['success']:
+                    download_id = str(uuid.uuid4())
+                    downloads_registry[download_id] = {
+                        'file_path': result['zip_path'],
+                        'filename': result['filename'],
+                        'session_id': batch_session_id
+                    }
+                    
+                    # Mettre à jour le batch
+                    batch_data['completed'] = True
+                    batch_data['download_id'] = download_id
+                    
+                    # Sauvegarder la progression dans le fichier session
+                    session_file = os.path.join(session_folder, 'session.json')
+                    with open(session_file, 'r') as f:
+                        session_info = json.load(f)
+                    session_info['batches'][str(batch_num)]['completed'] = True
+                    session_info['batches'][str(batch_num)]['download_id'] = download_id
+                    with open(session_file, 'w') as f:
+                        json.dump(session_info, f)
+                    
+                    logger.info(f"AUTO: Lot {batch_num} terminé avec succès")
+                else:
+                    logger.error(f"AUTO: Lot {batch_num} échoué")
+            
+            # Tous les lots terminés
+            progress_manager.update(auto_sess_id,
+                status='ready',
+                current=total_batches,
+                total=total_batches,
+                message=f"Tous les lots téléchargés ({total_batches}/{total_batches})"
+            )
+            
+            logger.info(f"AUTO: Tous les lots terminés pour session {main_session_id}")
+            
+        except Exception as e:
+            logger.error(f"AUTO: Erreur globale: {str(e)}", exc_info=True)
+            progress_manager.update(auto_sess_id,
+                status='error',
+                message=f"Erreur: {str(e)}"
+            )
+    
+    thread = threading.Thread(
+        target=auto_download_worker,
+        args=(session_id, auto_session_id)
+    )
+    thread.daemon = True
+    thread.start()
+    
+    logger.info(f"Thread automatique démarré pour session {session_id}")
+    logger.info("=" * 80)
+    
+    return jsonify({
+        'success': True,
+        'auto_session_id': auto_session_id,
+        'message': 'Téléchargement automatique démarré'
     })
 
 @bp.route('/merge_batches', methods=['POST'])
