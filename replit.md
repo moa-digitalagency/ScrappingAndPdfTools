@@ -111,6 +111,22 @@ DEPLOYMENT.md         # Guide de déploiement
 - Interface professionnelle avec Tailwind CSS
 
 ## Changements Récents
+- **16 octobre 2025 (Version 3.3 - Améliorations SSE et Gestion des Erreurs)** :
+  - ✅ **SSE ultra-robuste pour gros volumes (2900+ URLs)** :
+    - Système de heartbeat pour maintenir la connexion active
+    - Reconnexion automatique avec 5 tentatives progressives
+    - Correction du bug de payload 'ready' final (comparaison JSON vs références)
+    - Fréquence mise à jour optimisée (0.3s au lieu de 0.5s)
+    - Headers anti-buffering pour streaming fiable
+  - ✅ **Nettoyage automatique des fichiers temporaires** :
+    - Nettoyage automatique au chargement/refresh de la page
+    - Suppression des fichiers > 1h d'ancienneté
+    - Endpoint `/cleanup` dédié pour libérer l'espace
+  - ✅ **Affichage des liens en erreur** :
+    - Liste détaillée des URLs en échec avec messages d'erreur
+    - Interface pliable/dépliable pour consultation facile
+    - Transmission complète des `failed_urls` du backend au frontend
+  
 - **16 octobre 2025 (Version 3.2 - Progression en Temps Réel)** :
   - ✅ **Progression en temps réel** : Affichage détaillé de l'avancement pour toutes les opérations
     - Compteur de fichiers traités (ex: 150/3000)
