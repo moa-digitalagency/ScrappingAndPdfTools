@@ -8,6 +8,15 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 ## [Non publié]
 
 ### Ajouté
+- 🎯 **Progression en temps réel** : Affichage de la progression détaillée pour toutes les opérations
+  - Compteur de fichiers traités (ex: 150/3000)
+  - Affichage des lots en cours (ex: Lot 8/150)
+  - Nombre de réussites et d'échecs en temps réel
+  - Barre de progression visuelle avec pourcentage
+  - Messages d'état pour chaque étape du processus
+- 🔄 **Server-Sent Events (SSE)** : Communication en temps réel entre serveur et client
+- 📊 **Découpage intelligent** : Analyse automatique et découpage en lots optimaux (20 PDFs par lot)
+- 🧵 **Traitement asynchrone** : Téléchargement et analyse en arrière-plan sans bloquer l'interface
 - Système d'analyse intelligente de PDFs avec OpenRouter API
 - Extraction automatique de texte et analyse de structure
 - Génération de base de données Excel exportable à partir de l'analyse
@@ -20,10 +29,18 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - Requirements.txt pour déploiement simplifié
 
 ### Modifié
-- Augmentation du timeout de téléchargement de 30s à 300s
+- 🚀 **Optimisation mémoire** : Réduction des workers simultanés de 20 à 5 pour éviter les crashs
+- 📦 **Taille des lots** : Réduction de 50 à 20 PDFs par lot pour meilleure stabilité
+- ⏱️ **Timeout serveur** : Augmentation de 30s à 300s pour opérations longues
+- 🎨 **Interface utilisateur** : Ajout de tableaux de bord de progression interactifs
 - Suppression de la limite MAX_CONTENT_LENGTH (50MB) pour uploads illimités
 - Amélioration de la gestion des erreurs avec logs détaillés
 - Remplacement de l'Excel basique du merger par analyseur intelligent
+
+### Corrigé
+- ❌ **Erreur "Unexpected token '<'"** : Correction du plantage serveur lors de téléchargements massifs
+- 🔧 **Worker timeout** : Résolution des erreurs WORKER TIMEOUT lors du traitement de nombreux PDFs
+- 💾 **Gestion mémoire** : Prévention des crashs "out of memory" avec traitement par lots optimisé
 
 ### Supprimé
 - Limitation de taille d'upload de 50MB

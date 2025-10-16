@@ -10,6 +10,7 @@ from openpyxl.utils import get_column_letter
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
+from app.utils.progress import progress_manager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -365,7 +366,7 @@ def create_excel_from_analysis(analysis_results, temp_folder):
             'error': str(e)
         }
 
-def analyze_pdfs_from_csv(csv_content, temp_folder, max_workers=5):
+def analyze_pdfs_from_csv(csv_content, temp_folder, max_workers=5, session_id=None):
     """Analyse des PDFs depuis un fichier CSV contenant des URLs"""
     try:
         # Lire le CSV
@@ -380,6 +381,13 @@ def analyze_pdfs_from_csv(csv_content, temp_folder, max_workers=5):
         if not urls:
             return {'success': False, 'error': 'Aucune URL trouvée dans le fichier CSV'}
         
+        if session_id:
+            progress_manager.update(session_id,
+                status='analyzing',
+                total=len(urls),
+                message=f'Analyse intelligente de {len(urls)} PDFs...'
+            )
+        
         logger.info(f"Analyse de {len(urls)} PDFs depuis le CSV")
         
         # Analyser les PDFs en parallèle
@@ -391,7 +399,15 @@ def analyze_pdfs_from_csv(csv_content, temp_folder, max_workers=5):
             ]
             
             for future in as_completed(futures):
-                results.append(future.result())
+                result = future.result()
+                results.append(result)
+                
+                if session_id:
+                    progress_manager.update(session_id,
+                        current=len(results),
+                        successful=sum(1 for r in results if r['success']),
+                        failed=sum(1 for r in results if not r['success'])
+                    )
         
         # Créer le fichier Excel
         excel_result = create_excel_from_analysis(results, temp_folder)
@@ -412,7 +428,7 @@ def analyze_pdfs_from_csv(csv_content, temp_folder, max_workers=5):
         logger.error(f"Erreur lors de l'analyse depuis CSV: {str(e)}")
         return {'success': False, 'error': str(e)}
 
-def analyze_pdfs_from_zip(zip_path, temp_folder, max_workers=5):
+def analyze_pdfs_from_zip(zip_path, temp_folder, max_workers=5, session_id=None):
     """Analyse des PDFs depuis un fichier ZIP"""
     try:
         # Extraire le ZIP
@@ -432,6 +448,13 @@ def analyze_pdfs_from_zip(zip_path, temp_folder, max_workers=5):
         if not pdf_files:
             return {'success': False, 'error': 'Aucun fichier PDF trouvé dans le ZIP'}
         
+        if session_id:
+            progress_manager.update(session_id,
+                status='analyzing',
+                total=len(pdf_files),
+                message=f'Analyse intelligente de {len(pdf_files)} PDFs depuis le ZIP...'
+            )
+        
         logger.info(f"Analyse de {len(pdf_files)} PDFs depuis le ZIP")
         
         # Analyser les PDFs en parallèle
@@ -443,7 +466,15 @@ def analyze_pdfs_from_zip(zip_path, temp_folder, max_workers=5):
             ]
             
             for future in as_completed(futures):
-                results.append(future.result())
+                result = future.result()
+                results.append(result)
+                
+                if session_id:
+                    progress_manager.update(session_id,
+                        current=len(results),
+                        successful=sum(1 for r in results if r['success']),
+                        failed=sum(1 for r in results if not r['success'])
+                    )
         
         # Nettoyer les fichiers extraits
         for root, dirs, files in os.walk(extract_dir, topdown=False):
