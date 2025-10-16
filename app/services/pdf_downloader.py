@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from app.utils.progress import progress_manager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -96,7 +97,7 @@ def download_single_pdf(url, idx, temp_dir, max_retries=3):
     
     return {'success': False, 'url': url, 'error': 'Max retries atteint'}
 
-def download_pdfs_and_zip(urls, temp_folder, max_workers=5, batch_size=20):
+def download_pdfs_and_zip(urls, temp_folder, max_workers=5, batch_size=20, session_id=None):
     """Télécharge des PDFs en parallèle avec batching optimisé pour 1000+ documents"""
     temp_dir = os.path.join(temp_folder, str(uuid.uuid4()))
     os.makedirs(temp_dir, exist_ok=True)
@@ -105,15 +106,31 @@ def download_pdfs_and_zip(urls, temp_folder, max_workers=5, batch_size=20):
     failed = 0
     failed_urls = []
     total_urls = len(urls)
+    total_batches = (total_urls + batch_size - 1) // batch_size
+    
+    if session_id:
+        progress_manager.update(session_id, 
+            status='downloading',
+            total=total_urls,
+            batch_total=total_batches,
+            message=f'Téléchargement de {total_urls} PDFs en {total_batches} lots de {batch_size}...'
+        )
     
     logger.info(f"Début du téléchargement de {total_urls} PDFs avec {max_workers} workers, batch_size={batch_size}")
-    logger.info(f"Traitement en {(total_urls + batch_size - 1) // batch_size} batchs")
+    logger.info(f"Traitement en {total_batches} batchs")
     
     for batch_start in range(0, total_urls, batch_size):
         batch_end = min(batch_start + batch_size, total_urls)
         batch_urls = urls[batch_start:batch_end]
+        batch_num = batch_start // batch_size + 1
         
-        logger.info(f"Traitement batch {batch_start//batch_size + 1}: URLs {batch_start+1} à {batch_end}")
+        if session_id:
+            progress_manager.update(session_id,
+                batch_current=batch_num,
+                message=f'Traitement du lot {batch_num}/{total_batches} (URLs {batch_start+1} à {batch_end})'
+            )
+        
+        logger.info(f"Traitement batch {batch_num}: URLs {batch_start+1} à {batch_end}")
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_url = {
@@ -128,14 +145,32 @@ def download_pdfs_and_zip(urls, temp_folder, max_workers=5, batch_size=20):
                 else:
                     failed += 1
                     failed_urls.append({'url': result['url'], 'error': result.get('error', 'Unknown error')})
+                
+                if session_id:
+                    progress_manager.update(session_id,
+                        current=successful + failed,
+                        successful=successful,
+                        failed=failed
+                    )
         
         logger.info(f"Batch terminé: {successful} succès, {failed} échecs sur {batch_end} URLs traitées")
     
     if successful == 0:
+        if session_id:
+            progress_manager.update(session_id,
+                status='error',
+                message=f'Aucun PDF téléchargé avec succès. {failed} échecs.'
+            )
         return {
             'success': False,
             'error': f'Aucun PDF téléchargé avec succès. {failed} échecs.'
         }
+    
+    if session_id:
+        progress_manager.update(session_id,
+            status='compressing',
+            message=f'Compression de {successful} PDFs en fichier ZIP...'
+        )
     
     unique_id = str(uuid.uuid4())[:8]
     zip_filename = f'pdfs_{unique_id}.zip'
@@ -154,6 +189,12 @@ def download_pdfs_and_zip(urls, temp_folder, max_workers=5, batch_size=20):
         for dir in dirs:
             os.rmdir(os.path.join(root, dir))
     os.rmdir(temp_dir)
+    
+    if session_id:
+        progress_manager.update(session_id,
+            status='completed',
+            message=f'Terminé! {successful} PDFs téléchargés avec succès, {failed} échecs.'
+        )
     
     return {
         'success': True,

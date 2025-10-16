@@ -63,12 +63,37 @@
         </form>
 
         <div id="loadingSection" class="hidden mt-8">
-            <div class="flex items-center justify-center space-x-3 text-blue-600">
-                <i class="fas fa-spinner fa-spin text-3xl"></i>
-                <span class="text-lg font-semibold">Téléchargement et compression en cours...</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-3 mt-4">
-                <div class="bg-blue-600 h-3 rounded-full animate-pulse" style="width: 100%"></div>
+            <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3 text-blue-600">
+                        <i class="fas fa-spinner fa-spin text-2xl"></i>
+                        <span id="statusMessage" class="text-lg font-semibold">Initialisation...</span>
+                    </div>
+                    <span id="progressPercent" class="text-2xl font-bold text-blue-700">0%</span>
+                </div>
+                
+                <div class="w-full bg-gray-200 rounded-full h-4 mb-4">
+                    <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div class="bg-white rounded-lg p-3">
+                        <p class="text-gray-600">Fichiers traités</p>
+                        <p class="text-2xl font-bold text-blue-700"><span id="currentCount">0</span> / <span id="totalCount">0</span></p>
+                    </div>
+                    <div class="bg-white rounded-lg p-3">
+                        <p class="text-gray-600">Lot actuel</p>
+                        <p class="text-2xl font-bold text-blue-700"><span id="batchCurrent">0</span> / <span id="batchTotal">0</span></p>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-3">
+                        <p class="text-gray-600">Réussis</p>
+                        <p class="text-2xl font-bold text-green-600" id="successCount">0</p>
+                    </div>
+                    <div class="bg-red-50 rounded-lg p-3">
+                        <p class="text-gray-600">Échecs</p>
+                        <p class="text-2xl font-bold text-red-600" id="failedCount">0</p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -174,22 +199,62 @@
             const data = await response.json();
             
             if (data.success) {
-                document.getElementById('resultStats').innerHTML = `
-                    <p class="mb-2"><strong>Total d'URLs:</strong> ${data.total}</p>
-                    <p class="mb-2"><strong>Téléchargements réussis:</strong> ${data.successful}</p>
-                    <p class="mb-2"><strong>Échecs:</strong> ${data.failed}</p>
-                    <p class="mb-2"><strong>Fichier:</strong> ${data.filename}</p>
-                `;
+                const sessionId = data.session_id;
+                document.getElementById('totalCount').textContent = data.total;
                 
-                document.getElementById('downloadLink').href = `/downloader/download/${data.download_id}`;
-                document.getElementById('resultSection').classList.remove('hidden');
-                showToast('Traitement terminé avec succès !', 'success');
+                const eventSource = new EventSource(`/downloader/progress/${sessionId}`);
+                
+                eventSource.onmessage = function(event) {
+                    const progress = JSON.parse(event.data);
+                    
+                    document.getElementById('statusMessage').textContent = progress.message || 'En cours...';
+                    document.getElementById('currentCount').textContent = progress.current || 0;
+                    document.getElementById('totalCount').textContent = progress.total || 0;
+                    document.getElementById('batchCurrent').textContent = progress.batch_current || 0;
+                    document.getElementById('batchTotal').textContent = progress.batch_total || 0;
+                    document.getElementById('successCount').textContent = progress.successful || 0;
+                    document.getElementById('failedCount').textContent = progress.failed || 0;
+                    
+                    const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+                    document.getElementById('progressBar').style.width = percent + '%';
+                    document.getElementById('progressPercent').textContent = percent + '%';
+                    
+                    if (progress.status === 'ready') {
+                        eventSource.close();
+                        document.getElementById('loadingSection').classList.add('hidden');
+                        
+                        document.getElementById('resultStats').innerHTML = `
+                            <p class="mb-2"><strong>Total d'URLs:</strong> ${progress.total}</p>
+                            <p class="mb-2"><strong>Téléchargements réussis:</strong> ${progress.successful}</p>
+                            <p class="mb-2"><strong>Échecs:</strong> ${progress.failed}</p>
+                            <p class="mb-2"><strong>Fichier:</strong> ${progress.filename}</p>
+                        `;
+                        
+                        document.getElementById('downloadLink').href = `/downloader/download/${progress.download_id}`;
+                        document.getElementById('resultSection').classList.remove('hidden');
+                        document.getElementById('submitBtn').disabled = false;
+                        showToast('Traitement terminé avec succès !', 'success');
+                    } else if (progress.status === 'error') {
+                        eventSource.close();
+                        document.getElementById('loadingSection').classList.add('hidden');
+                        document.getElementById('submitBtn').disabled = false;
+                        showToast('Erreur: ' + progress.message, 'error');
+                    }
+                };
+                
+                eventSource.onerror = function() {
+                    eventSource.close();
+                    document.getElementById('loadingSection').classList.add('hidden');
+                    document.getElementById('submitBtn').disabled = false;
+                    showToast('Erreur de connexion au flux de progression', 'error');
+                };
             } else {
                 showToast('Erreur: ' + data.error, 'error');
+                document.getElementById('loadingSection').classList.add('hidden');
+                document.getElementById('submitBtn').disabled = false;
             }
         } catch (error) {
             showToast('Erreur de connexion: ' + error.message, 'error');
-        } finally {
             document.getElementById('loadingSection').classList.add('hidden');
             document.getElementById('submitBtn').disabled = false;
         }
