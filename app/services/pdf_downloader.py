@@ -29,7 +29,7 @@ def download_single_pdf(url, idx, temp_dir, max_retries=3):
             
             response = requests.get(
                 url, 
-                timeout=(30, 300),
+                timeout=(10, 60),
                 stream=True,
                 headers={
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
