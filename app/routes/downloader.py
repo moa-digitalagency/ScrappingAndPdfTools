@@ -302,6 +302,92 @@ def start_auto_download():
         'message': 'Téléchargement automatique démarré'
     })
 
+@bp.route('/list_sessions', methods=['GET'])
+def list_sessions():
+    """Liste toutes les sessions disponibles"""
+    try:
+        temp_folder = current_app.config['TEMP_FOLDER']
+        sessions = []
+        
+        for item in os.listdir(temp_folder):
+            if item.startswith('session_'):
+                session_folder = os.path.join(temp_folder, item)
+                session_file = os.path.join(session_folder, 'session.json')
+                
+                if os.path.exists(session_file):
+                    with open(session_file, 'r') as f:
+                        session_data = json.load(f)
+                        
+                        # Compter les lots complétés
+                        completed_count = sum(1 for b in session_data['batches'].values() if b.get('completed', False))
+                        
+                        sessions.append({
+                            'session_id': session_data['session_id'],
+                            'total_urls': session_data['total_urls'],
+                            'total_batches': session_data['total_batches'],
+                            'completed_batches': completed_count,
+                            'batch_size': session_data['batch_size']
+                        })
+        
+        return jsonify({'success': True, 'sessions': sessions})
+    except Exception as e:
+        logger.error(f"Erreur liste sessions: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/load_session/<session_id>', methods=['GET'])
+def load_session(session_id):
+    """Charge une session existante"""
+    try:
+        temp_folder = current_app.config['TEMP_FOLDER']
+        session_folder = os.path.join(temp_folder, f'session_{session_id}')
+        session_file = os.path.join(session_folder, 'session.json')
+        
+        if not os.path.exists(session_file):
+            return jsonify({'success': False, 'error': 'Session introuvable'}), 404
+        
+        with open(session_file, 'r') as f:
+            session_data = json.load(f)
+        
+        # Recharger dans le registre
+        batches = {}
+        for batch_num_str, batch_info in session_data['batches'].items():
+            batch_num = int(batch_num_str)
+            batches[batch_num] = batch_info
+            
+            # Recharger les download_ids dans le registre
+            if batch_info.get('download_id') and batch_info.get('completed'):
+                download_id = batch_info['download_id']
+                # Trouver le fichier ZIP correspondant
+                zip_files = [f for f in os.listdir(session_folder) if f.endswith('.zip')]
+                for zip_file in zip_files:
+                    zip_path = os.path.join(session_folder, zip_file)
+                    downloads_registry[download_id] = {
+                        'file_path': zip_path,
+                        'filename': zip_file,
+                        'session_id': session_id
+                    }
+        
+        batches_registry[session_id] = {
+            'total_urls': session_data['total_urls'],
+            'batch_size': session_data['batch_size'],
+            'batches': batches,
+            'session_folder': session_folder
+        }
+        
+        logger.info(f"Session {session_id} chargée avec succès")
+        
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'total_urls': session_data['total_urls'],
+            'total_batches': session_data['total_batches'],
+            'batches': batches
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur chargement session: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @bp.route('/merge_batches', methods=['POST'])
 def merge_batches():
     """Fusionne tous les lots téléchargés en un seul ZIP"""
