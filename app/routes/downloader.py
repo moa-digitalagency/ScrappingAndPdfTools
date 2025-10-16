@@ -252,6 +252,14 @@ def start_auto_download():
             total_batches = len(batches)
             
             progress_manager.create_session(auto_sess_id)
+            progress_manager.update(auto_sess_id,
+                status='processing',
+                current=0,
+                total=total_batches,
+                message=f"Initialisation du téléchargement automatique..."
+            )
+            
+            completed_count = 0
             
             for batch_num in sorted(batches.keys()):
                 batch_data = batches[batch_num]
@@ -263,9 +271,9 @@ def start_auto_download():
                 
                 progress_manager.update(auto_sess_id,
                     status='processing',
-                    current=batch_num,
+                    current=completed_count,
                     total=total_batches,
-                    message=f"Téléchargement automatique - Lot {batch_num}/{total_batches}"
+                    message=f"Traitement du lot {batch_num}/{total_batches} en cours..."
                 )
                 
                 # Télécharger ce lot
@@ -303,6 +311,15 @@ def start_auto_download():
                     session_info['batches'][str(batch_num)]['failed_urls'] = result.get('failed_urls', [])
                     with open(session_file, 'w') as f:
                         json.dump(session_info, f)
+                    
+                    completed_count += 1
+                    
+                    progress_manager.update(auto_sess_id,
+                        status='processing',
+                        current=completed_count,
+                        total=total_batches,
+                        message=f"Lot {batch_num}/{total_batches} terminé - {result['filename']}"
+                    )
                     
                     logger.info(f"AUTO: Lot {batch_num} terminé - {result['filename']} (mémoire + disque synchronisés)")
                 else:
