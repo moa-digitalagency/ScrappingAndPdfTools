@@ -7,9 +7,19 @@ Siteweb : www.myoneart.com
 """
 
 import os
+import sys
 import tempfile
+import logging
 from flask import Flask, Request
 from config import Config
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
 class StreamingRequest(Request):
     """Request personnalisée pour streaming upload direct vers disque"""

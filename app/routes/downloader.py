@@ -12,12 +12,14 @@ import uuid
 import json
 import time
 import threading
+import logging
 from werkzeug.utils import secure_filename
 from app.services.pdf_downloader import download_pdfs_and_zip
 from app.utils.storage import cleanup_temp_file, cleanup_old_temp_files
 from app.utils.progress import progress_manager
 from app.models import add_log
 
+logger = logging.getLogger(__name__)
 bp = Blueprint('downloader', __name__, url_prefix='/downloader')
 
 downloads_registry = {}
@@ -78,24 +80,38 @@ def download_worker(session_id, urls_list, temp_folder):
 
 @bp.route('/process', methods=['POST'])
 def process():
+    logger.info("=" * 80)
+    logger.info("NOUVELLE REQUÊTE /downloader/process")
+    logger.info(f"Headers: {dict(request.headers)}")
+    
     data = request.get_json()
+    logger.info(f"Données reçues: {data}")
+    
     urls = data.get('urls', [])
+    logger.info(f"Nombre d'URLs brutes reçues: {len(urls) if urls else 0}")
     
     if not urls:
+        logger.warning("ERREUR: Aucune URL fournie")
         return jsonify({'success': False, 'error': 'Aucune URL fournie'}), 400
     
     urls_list = [url.strip() for url in urls if url.strip()]
+    logger.info(f"Nombre d'URLs valides après nettoyage: {len(urls_list)}")
     
     if not urls_list:
+        logger.warning("ERREUR: Aucune URL valide après nettoyage")
         return jsonify({'success': False, 'error': 'Aucune URL valide fournie'}), 400
     
     session_id = str(uuid.uuid4())
+    logger.info(f"Session créée: {session_id}")
+    
     progress_manager.create_session(session_id)
     progress_manager.update(session_id,
         status='analyzing',
         total=len(urls_list),
         message=f'Analyse de {len(urls_list)} URLs...'
     )
+    
+    logger.info(f"Progression initialisée pour session {session_id}")
     
     # Logger le démarrage du téléchargement
     add_log(
@@ -111,6 +127,9 @@ def process():
     thread.daemon = True
     thread.start()
     
+    logger.info(f"Thread de téléchargement démarré pour session {session_id}")
+    logger.info("=" * 80)
+    
     return jsonify({
         'success': True,
         'session_id': session_id,
@@ -120,30 +139,41 @@ def process():
 @bp.route('/progress/<session_id>')
 def progress(session_id):
     """Server-Sent Events endpoint pour la progression en temps réel"""
+    logger.info(f"SSE: Nouvelle connexion pour session {session_id}")
+    
     def generate():
         last_data_json = None
         heartbeat_counter = 0
+        iteration = 0
         
         while True:
+            iteration += 1
             data = progress_manager.get(session_id)
+            
             if data:
                 data_json = json.dumps(data)
                 
                 if data_json != last_data_json or heartbeat_counter >= 10:
+                    logger.debug(f"SSE [{session_id}] Iter {iteration}: Envoi données - {data_json[:100]}...")
                     yield f"data: {data_json}\n\n"
                     last_data_json = data_json
                     heartbeat_counter = 0
                 else:
+                    logger.debug(f"SSE [{session_id}] Iter {iteration}: Heartbeat")
                     yield f": heartbeat\n\n"
                     heartbeat_counter += 1
                 
                 if data.get('status') in ['completed', 'ready', 'error']:
+                    logger.info(f"SSE [{session_id}] Terminé avec status: {data.get('status')}")
                     break
             else:
+                logger.warning(f"SSE [{session_id}] Session non trouvée!")
                 yield f"data: {json.dumps({'status': 'not_found'})}\n\n"
                 break
             
             time.sleep(0.3)
+        
+        logger.info(f"SSE [{session_id}] Connexion fermée après {iteration} itérations")
     
     response = Response(stream_with_context(generate()), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'

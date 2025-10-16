@@ -25,7 +25,7 @@ def download_single_pdf(url, idx, temp_dir, max_retries=3):
     for attempt in range(max_retries):
         response = None
         try:
-            logger.info(f"Téléchargement {idx}: {url[:100]}... (tentative {attempt + 1}/{max_retries})")
+            logger.info(f"[PDF {idx}] Début téléchargement: {url} (tentative {attempt + 1}/{max_retries})")
             
             response = requests.get(
                 url, 
@@ -37,6 +37,10 @@ def download_single_pdf(url, idx, temp_dir, max_retries=3):
                 },
                 allow_redirects=True
             )
+            
+            logger.info(f"[PDF {idx}] Code HTTP: {response.status_code}")
+            logger.debug(f"[PDF {idx}] Headers reçus: {dict(response.headers)}")
+            
             response.raise_for_status()
             
             content_type = response.headers.get('content-type', '').lower()
@@ -72,32 +76,48 @@ def download_single_pdf(url, idx, temp_dir, max_retries=3):
             logger.info(f"Téléchargement {idx} réussi: {filename} ({total_size} bytes)")
             return {'success': True, 'url': url, 'filename': filename, 'size': total_size}
             
-        except requests.exceptions.Timeout:
-            error_msg = 'Timeout de connexion'
-            logger.warning(f"Timeout pour {idx}: {url[:100]}")
+        except requests.exceptions.Timeout as e:
+            error_msg = f'Timeout de connexion: {str(e)}'
+            logger.error(f"[PDF {idx}] TIMEOUT - URL: {url} - Détails: {str(e)}")
             if attempt < max_retries - 1:
                 wait_time = min(2 ** attempt, 10)
-                logger.info(f"Nouvelle tentative dans {wait_time}s")
+                logger.info(f"[PDF {idx}] Nouvelle tentative dans {wait_time}s")
                 time.sleep(wait_time)
             else:
+                logger.error(f"[PDF {idx}] ÉCHEC FINAL après {max_retries} tentatives - {error_msg}")
+                return {'success': False, 'url': url, 'error': error_msg}
+                
+        except requests.exceptions.HTTPError as e:
+            status_code = e.response.status_code if e.response else 'N/A'
+            error_msg = f'Erreur HTTP {status_code}: {str(e)}'
+            logger.error(f"[PDF {idx}] ERREUR HTTP {status_code} - URL: {url} - Détails: {str(e)}")
+            if e.response:
+                logger.debug(f"[PDF {idx}] Contenu réponse: {e.response.text[:200]}")
+            if attempt < max_retries - 1:
+                wait_time = min(2 ** attempt, 10)
+                time.sleep(wait_time)
+            else:
+                logger.error(f"[PDF {idx}] ÉCHEC FINAL - {error_msg}")
                 return {'success': False, 'url': url, 'error': error_msg}
                 
         except requests.exceptions.RequestException as e:
-            error_msg = f'Erreur réseau: {str(e)[:100]}'
-            logger.warning(f"Erreur réseau pour {idx}: {str(e)[:100]}")
+            error_msg = f'Erreur réseau: {str(e)}'
+            logger.error(f"[PDF {idx}] ERREUR RÉSEAU - URL: {url} - Détails: {str(e)}")
             if attempt < max_retries - 1:
                 wait_time = min(2 ** attempt, 10)
                 time.sleep(wait_time)
             else:
+                logger.error(f"[PDF {idx}] ÉCHEC FINAL - {error_msg}")
                 return {'success': False, 'url': url, 'error': error_msg}
                 
         except Exception as e:
-            error_msg = f'Erreur: {str(e)[:100]}'
-            logger.error(f"Erreur inattendue pour {idx}: {str(e)[:100]}")
+            error_msg = f'Erreur inattendue: {str(e)}'
+            logger.error(f"[PDF {idx}] ERREUR INATTENDUE - URL: {url} - Type: {type(e).__name__} - Détails: {str(e)}", exc_info=True)
             if attempt < max_retries - 1:
                 wait_time = min(2 ** attempt, 10)
                 time.sleep(wait_time)
             else:
+                logger.error(f"[PDF {idx}] ÉCHEC FINAL - {error_msg}")
                 return {'success': False, 'url': url, 'error': error_msg}
         finally:
             if response:
