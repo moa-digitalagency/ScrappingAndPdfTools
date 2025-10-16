@@ -111,6 +111,20 @@ DEPLOYMENT.md         # Guide de déploiement
 - Interface professionnelle avec Tailwind CSS
 
 ## Changements Récents
+- **16 octobre 2025 (Version 3.2 - Progression en Temps Réel)** :
+  - ✅ **Progression en temps réel** : Affichage détaillé de l'avancement pour toutes les opérations
+    - Compteur de fichiers traités (ex: 150/3000)
+    - Affichage des lots en cours (ex: Lot 8/150)
+    - Nombre de réussites et d'échecs en temps réel
+    - Barre de progression visuelle avec pourcentage
+    - Messages d'état pour chaque étape du processus
+  - ✅ **Server-Sent Events (SSE)** : Communication en temps réel serveur-client
+  - ✅ **Découpage intelligent automatique** : Analyse et découpage en lots de 20 PDFs
+  - ✅ **Traitement asynchrone** : Téléchargement et analyse en arrière-plan
+  - ✅ **Optimisation mémoire** : Réduction des workers de 20 à 5 pour éviter les crashs
+  - ✅ **Correction erreur "Unexpected token"** : Résolution des plantages serveur
+  - ✅ **Timeout serveur** : Augmentation à 300s pour opérations longues
+  
 - **15 octobre 2025 (Version 3.1 - Améliorations UX et Robustesse)** :
   - ✅ **Layout responsive amélioré** : 2 blocs en colonnes (Télécharger & Fusionner) + Analyse IA en bas pleine largeur
   - ✅ **Option CSV pour le téléchargeur** : Possibilité de coller des liens OU uploader un fichier CSV
