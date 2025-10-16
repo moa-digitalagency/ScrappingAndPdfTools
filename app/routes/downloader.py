@@ -6,7 +6,7 @@ import time
 import threading
 from werkzeug.utils import secure_filename
 from app.services.pdf_downloader import download_pdfs_and_zip
-from app.utils.storage import cleanup_temp_file
+from app.utils.storage import cleanup_temp_file, cleanup_old_temp_files
 from app.utils.progress import progress_manager
 
 bp = Blueprint('downloader', __name__, url_prefix='/downloader')
@@ -16,6 +16,16 @@ downloads_registry = {}
 @bp.route('/')
 def index():
     return render_template('downloader.html')
+
+@bp.route('/cleanup', methods=['POST'])
+def cleanup():
+    """Nettoie les fichiers temporaires anciens"""
+    try:
+        cleaned_count = cleanup_old_temp_files(current_app.config['TEMP_FOLDER'], max_age_seconds=3600)
+        progress_manager.cleanup_old_sessions(max_age=3600)
+        return jsonify({'success': True, 'cleaned_count': cleaned_count})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 def download_worker(session_id, urls_list, temp_folder):
     """Worker thread pour le téléchargement en arrière-plan"""
@@ -32,7 +42,8 @@ def download_worker(session_id, urls_list, temp_folder):
             progress_manager.update(session_id,
                 status='ready',
                 download_id=download_id,
-                filename=result['filename']
+                filename=result['filename'],
+                failed_urls=result.get('failed_urls', [])
             )
     except Exception as e:
         progress_manager.update(session_id,
@@ -78,10 +89,21 @@ def process():
 def progress(session_id):
     """Server-Sent Events endpoint pour la progression en temps réel"""
     def generate():
+        last_data_json = None
+        heartbeat_counter = 0
+        
         while True:
             data = progress_manager.get(session_id)
             if data:
-                yield f"data: {json.dumps(data)}\n\n"
+                data_json = json.dumps(data)
+                
+                if data_json != last_data_json or heartbeat_counter >= 10:
+                    yield f"data: {data_json}\n\n"
+                    last_data_json = data_json
+                    heartbeat_counter = 0
+                else:
+                    yield f": heartbeat\n\n"
+                    heartbeat_counter += 1
                 
                 if data.get('status') in ['completed', 'ready', 'error']:
                     break
@@ -89,9 +111,12 @@ def progress(session_id):
                 yield f"data: {json.dumps({'status': 'not_found'})}\n\n"
                 break
             
-            time.sleep(0.5)
+            time.sleep(0.3)
     
-    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    return response
 
 @bp.route('/download/<download_id>')
 def download(download_id):

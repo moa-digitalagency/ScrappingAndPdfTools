@@ -111,6 +111,25 @@
                     <i class="fas fa-file-archive mr-2"></i>Télécharger le ZIP
                 </a>
             </div>
+            
+            <div id="errorUrlsSection" class="hidden mt-4">
+                <div class="bg-red-50 border-2 border-red-200 rounded-lg p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xl font-bold text-red-800">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>URLs en erreur
+                        </h3>
+                        <button 
+                            id="toggleErrorsBtn" 
+                            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition"
+                        >
+                            <i class="fas fa-chevron-down mr-2"></i>Afficher
+                        </button>
+                    </div>
+                    <div id="errorUrlsList" class="hidden max-h-96 overflow-y-auto bg-white rounded-lg p-4">
+                        <div class="space-y-2 text-sm" id="errorUrlsContent"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -130,7 +149,33 @@
 
 {% block scripts %}
 <script>
+    window.addEventListener('DOMContentLoaded', function() {
+        fetch('/downloader/cleanup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        }).catch(err => console.error('Cleanup error:', err));
+    });
+    
     let currentMode = 'text';
+    
+    document.getElementById('toggleErrorsBtn').addEventListener('click', function() {
+        const errorsList = document.getElementById('errorUrlsList');
+        const icon = this.querySelector('i');
+        
+        if (errorsList.classList.contains('hidden')) {
+            errorsList.classList.remove('hidden');
+            icon.classList.remove('fa-chevron-down');
+            icon.classList.add('fa-chevron-up');
+            this.innerHTML = '<i class="fas fa-chevron-up mr-2"></i>Masquer';
+        } else {
+            errorsList.classList.add('hidden');
+            icon.classList.remove('fa-chevron-up');
+            icon.classList.add('fa-chevron-down');
+            this.innerHTML = '<i class="fas fa-chevron-down mr-2"></i>Afficher';
+        }
+    });
     
     document.getElementById('textModeBtn').addEventListener('click', function() {
         currentMode = 'text';
@@ -202,52 +247,87 @@
                 const sessionId = data.session_id;
                 document.getElementById('totalCount').textContent = data.total;
                 
-                const eventSource = new EventSource(`/downloader/progress/${sessionId}`);
+                let eventSource = null;
+                let reconnectAttempts = 0;
+                const maxReconnectAttempts = 5;
                 
-                eventSource.onmessage = function(event) {
-                    const progress = JSON.parse(event.data);
+                function connectToProgress() {
+                    eventSource = new EventSource(`/downloader/progress/${sessionId}`);
                     
-                    document.getElementById('statusMessage').textContent = progress.message || 'En cours...';
-                    document.getElementById('currentCount').textContent = progress.current || 0;
-                    document.getElementById('totalCount').textContent = progress.total || 0;
-                    document.getElementById('batchCurrent').textContent = progress.batch_current || 0;
-                    document.getElementById('batchTotal').textContent = progress.batch_total || 0;
-                    document.getElementById('successCount').textContent = progress.successful || 0;
-                    document.getElementById('failedCount').textContent = progress.failed || 0;
-                    
-                    const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
-                    document.getElementById('progressBar').style.width = percent + '%';
-                    document.getElementById('progressPercent').textContent = percent + '%';
-                    
-                    if (progress.status === 'ready') {
-                        eventSource.close();
-                        document.getElementById('loadingSection').classList.add('hidden');
+                    eventSource.onmessage = function(event) {
+                        reconnectAttempts = 0;
+                        const progress = JSON.parse(event.data);
                         
-                        document.getElementById('resultStats').innerHTML = `
-                            <p class="mb-2"><strong>Total d'URLs:</strong> ${progress.total}</p>
-                            <p class="mb-2"><strong>Téléchargements réussis:</strong> ${progress.successful}</p>
-                            <p class="mb-2"><strong>Échecs:</strong> ${progress.failed}</p>
-                            <p class="mb-2"><strong>Fichier:</strong> ${progress.filename}</p>
-                        `;
+                        document.getElementById('statusMessage').textContent = progress.message || 'En cours...';
+                        document.getElementById('currentCount').textContent = progress.current || 0;
+                        document.getElementById('totalCount').textContent = progress.total || 0;
+                        document.getElementById('batchCurrent').textContent = progress.batch_current || 0;
+                        document.getElementById('batchTotal').textContent = progress.batch_total || 0;
+                        document.getElementById('successCount').textContent = progress.successful || 0;
+                        document.getElementById('failedCount').textContent = progress.failed || 0;
                         
-                        document.getElementById('downloadLink').href = `/downloader/download/${progress.download_id}`;
-                        document.getElementById('resultSection').classList.remove('hidden');
-                        document.getElementById('submitBtn').disabled = false;
-                        showToast('Traitement terminé avec succès !', 'success');
-                    } else if (progress.status === 'error') {
+                        const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+                        document.getElementById('progressBar').style.width = percent + '%';
+                        document.getElementById('progressPercent').textContent = percent + '%';
+                        
+                        if (progress.status === 'ready') {
+                            eventSource.close();
+                            document.getElementById('loadingSection').classList.add('hidden');
+                            
+                            document.getElementById('resultStats').innerHTML = `
+                                <p class="mb-2"><strong>Total d'URLs:</strong> ${progress.total}</p>
+                                <p class="mb-2"><strong>Téléchargements réussis:</strong> ${progress.successful}</p>
+                                <p class="mb-2"><strong>Échecs:</strong> ${progress.failed}</p>
+                                <p class="mb-2"><strong>Fichier:</strong> ${progress.filename}</p>
+                            `;
+                            
+                            document.getElementById('downloadLink').href = `/downloader/download/${progress.download_id}`;
+                            
+                            if (progress.failed_urls && progress.failed_urls.length > 0) {
+                                const errorUrlsContent = document.getElementById('errorUrlsContent');
+                                errorUrlsContent.innerHTML = '';
+                                
+                                progress.failed_urls.forEach((item, index) => {
+                                    const errorDiv = document.createElement('div');
+                                    errorDiv.className = 'p-3 bg-red-50 border border-red-200 rounded-lg';
+                                    errorDiv.innerHTML = `
+                                        <p class="font-semibold text-red-800 mb-1">${index + 1}. ${item.error}</p>
+                                        <p class="text-gray-600 break-all">${item.url}</p>
+                                    `;
+                                    errorUrlsContent.appendChild(errorDiv);
+                                });
+                                
+                                document.getElementById('errorUrlsSection').classList.remove('hidden');
+                            }
+                            
+                            document.getElementById('resultSection').classList.remove('hidden');
+                            document.getElementById('submitBtn').disabled = false;
+                            showToast('Traitement terminé avec succès !', 'success');
+                        } else if (progress.status === 'error') {
+                            eventSource.close();
+                            document.getElementById('loadingSection').classList.add('hidden');
+                            document.getElementById('submitBtn').disabled = false;
+                            showToast('Erreur: ' + progress.message, 'error');
+                        }
+                    };
+                    
+                    eventSource.onerror = function() {
                         eventSource.close();
-                        document.getElementById('loadingSection').classList.add('hidden');
-                        document.getElementById('submitBtn').disabled = false;
-                        showToast('Erreur: ' + progress.message, 'error');
-                    }
-                };
+                        
+                        if (reconnectAttempts < maxReconnectAttempts) {
+                            reconnectAttempts++;
+                            console.log(`Reconnexion tentative ${reconnectAttempts}/${maxReconnectAttempts}...`);
+                            document.getElementById('statusMessage').textContent = `Reconnexion en cours (${reconnectAttempts}/${maxReconnectAttempts})...`;
+                            setTimeout(connectToProgress, 1000 * reconnectAttempts);
+                        } else {
+                            document.getElementById('loadingSection').classList.add('hidden');
+                            document.getElementById('submitBtn').disabled = false;
+                            showToast('Erreur de connexion au flux de progression. Rafraîchissez la page et réessayez.', 'error');
+                        }
+                    };
+                }
                 
-                eventSource.onerror = function() {
-                    eventSource.close();
-                    document.getElementById('loadingSection').classList.add('hidden');
-                    document.getElementById('submitBtn').disabled = false;
-                    showToast('Erreur de connexion au flux de progression', 'error');
-                };
+                connectToProgress();
             } else {
                 showToast('Erreur: ' + data.error, 'error');
                 document.getElementById('loadingSection').classList.add('hidden');
