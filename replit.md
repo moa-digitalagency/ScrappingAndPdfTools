@@ -111,6 +111,27 @@ DEPLOYMENT.md         # Guide de déploiement
 - Interface professionnelle avec Tailwind CSS
 
 ## Changements Récents
+- **16 octobre 2025 (Version 3.4 - Système de Logs Persistants)** :
+  - ✅ **Système de logs persistants avec SQLite** :
+    - Base de données SQLite pour stocker tous les logs d'actions
+    - Enregistrement de tous les événements : démarrages, succès, erreurs
+    - Filtrage par type (download, merger, analyzer) et statut (info, success, error)
+    - Page dédiée `/logs/` pour consulter l'historique complet
+  - ✅ **Intégration complète dans toutes les opérations** :
+    - Téléchargeur : logs au démarrage, succès avec compteurs, erreurs détaillées
+    - Fusion : logs de début, fin avec statistiques, gestion des échecs
+    - Analyse IA : logs pour chaque type d'input, résultats et erreurs
+  - ✅ **Page de contact** :
+    - Nouvelle page `/contact/` avec informations de MOA Digital Agency
+    - Email : moa@myoneart.com
+    - Site web : www.myoneart.com
+  - ✅ **Navigation simplifiée** :
+    - Header avec 3 liens : Accueil, Log, Contact
+    - Interface claire et professionnelle
+  - ✅ **En-têtes de copyright** :
+    - Tous les fichiers Python incluent les informations de développeur
+    - Branding MOA Digital Agency LLC
+  
 - **16 octobre 2025 (Version 3.3 - Améliorations SSE et Gestion des Erreurs)** :
   - ✅ **SSE ultra-robuste pour gros volumes (2900+ URLs)** :
     - Système de heartbeat pour maintenir la connexion active
