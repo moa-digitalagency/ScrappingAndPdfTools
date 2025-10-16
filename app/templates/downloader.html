@@ -3,16 +3,22 @@
 {% block title %}Télécharger & Zipper - PDF Tools{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
+<div class="max-w-6xl mx-auto">
     <div class="text-center mb-8">
         <h1 class="text-4xl font-bold text-gray-800 mb-3">
             <i class="fas fa-download text-blue-600 mr-3"></i>Télécharger & Zipper des PDFs
         </h1>
-        <p class="text-gray-600">Entrez une liste d'URLs de PDFs pour les télécharger et les compresser en un seul fichier ZIP</p>
+        <p class="text-gray-600">Système de téléchargement par lots - Contrôlez chaque étape</p>
     </div>
 
-    <div class="bg-white rounded-xl shadow-xl p-8">
-        <form id="downloadForm" enctype="multipart/form-data">
+    <!-- Étape 1: Upload -->
+    <div id="step1" class="bg-white rounded-xl shadow-xl p-8 mb-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+            <span class="bg-blue-600 text-white rounded-full w-8 h-8 inline-flex items-center justify-center mr-2">1</span>
+            Charger les URLs
+        </h2>
+        
+        <form id="uploadForm" enctype="multipart/form-data">
             <div class="mb-6">
                 <div class="flex items-center justify-between mb-3">
                     <label class="block text-lg font-semibold text-gray-700">
@@ -33,11 +39,8 @@
                         id="urls" 
                         rows="10" 
                         class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring focus:ring-blue-200 transition"
-                        placeholder="https://exemple.com/document1.pdf&#10;https://exemple.com/document2.pdf&#10;https://exemple.com/document3.pdf"
+                        placeholder="https://exemple.com/document1.pdf&#10;https://exemple.com/document2.pdf"
                     ></textarea>
-                    <p class="mt-2 text-sm text-gray-500">
-                        <i class="fas fa-info-circle mr-1"></i>Entrez une URL par ligne. Les URLs doivent pointer vers des fichiers PDF.
-                    </p>
                 </div>
                 
                 <div id="csvMode" class="mode-section hidden">
@@ -53,291 +56,322 @@
                 </div>
             </div>
 
+            <div class="mb-4">
+                <label class="block text-lg font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-layer-group text-blue-600 mr-2"></i>Taille des lots
+                </label>
+                <input type="number" id="batchSize" value="100" min="10" max="500" 
+                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500">
+                <p class="mt-2 text-sm text-gray-500">Nombre d'URLs à traiter par lot (recommandé: 100)</p>
+            </div>
+
             <button 
                 type="submit" 
-                id="submitBtn"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
+                id="prepareBtn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg transition shadow-lg"
             >
-                <i class="fas fa-download mr-2"></i>Télécharger et Zipper
+                <i class="fas fa-cogs mr-2"></i>Préparer les lots
             </button>
         </form>
-
-        <div id="loadingSection" class="hidden mt-8">
-            <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center space-x-3 text-blue-600">
-                        <i class="fas fa-spinner fa-spin text-2xl"></i>
-                        <span id="statusMessage" class="text-lg font-semibold">Initialisation...</span>
-                    </div>
-                    <span id="progressPercent" class="text-2xl font-bold text-blue-700">0%</span>
-                </div>
-                
-                <div class="w-full bg-gray-200 rounded-full h-4 mb-4">
-                    <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                    <div class="bg-white rounded-lg p-3">
-                        <p class="text-gray-600">Fichiers traités</p>
-                        <p class="text-2xl font-bold text-blue-700"><span id="currentCount">0</span> / <span id="totalCount">0</span></p>
-                    </div>
-                    <div class="bg-white rounded-lg p-3">
-                        <p class="text-gray-600">Lot actuel</p>
-                        <p class="text-2xl font-bold text-blue-700"><span id="batchCurrent">0</span> / <span id="batchTotal">0</span></p>
-                    </div>
-                    <div class="bg-green-50 rounded-lg p-3">
-                        <p class="text-gray-600">Réussis</p>
-                        <p class="text-2xl font-bold text-green-600" id="successCount">0</p>
-                    </div>
-                    <div class="bg-red-50 rounded-lg p-3">
-                        <p class="text-gray-600">Échecs</p>
-                        <p class="text-2xl font-bold text-red-600" id="failedCount">0</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="resultSection" class="hidden mt-8">
-            <div class="bg-green-50 border-2 border-green-200 rounded-lg p-6">
-                <h3 class="text-xl font-bold text-green-800 mb-4">
-                    <i class="fas fa-check-circle mr-2"></i>Traitement terminé !
-                </h3>
-                <div id="resultStats" class="text-gray-700 mb-4"></div>
-                <a 
-                    id="downloadLink" 
-                    href="#" 
-                    class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition"
-                >
-                    <i class="fas fa-file-archive mr-2"></i>Télécharger le ZIP
-                </a>
-            </div>
-            
-            <div id="errorUrlsSection" class="hidden mt-4">
-                <div class="bg-red-50 border-2 border-red-200 rounded-lg p-6">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-xl font-bold text-red-800">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>URLs en erreur
-                        </h3>
-                        <button 
-                            id="toggleErrorsBtn" 
-                            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition"
-                        >
-                            <i class="fas fa-chevron-down mr-2"></i>Afficher
-                        </button>
-                    </div>
-                    <div id="errorUrlsList" class="hidden max-h-96 overflow-y-auto bg-white rounded-lg p-4">
-                        <div class="space-y-2 text-sm" id="errorUrlsContent"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
-    <div class="mt-8 bg-blue-50 rounded-lg p-6">
-        <h3 class="font-bold text-lg text-blue-800 mb-3">
-            <i class="fas fa-lightbulb mr-2"></i>Conseils
-        </h3>
-        <ul class="list-disc list-inside text-gray-700 space-y-2">
-            <li>Assurez-vous que les URLs sont accessibles publiquement</li>
-            <li>Les URLs doivent pointer vers des fichiers PDF</li>
-            <li>Le temps de traitement dépend du nombre et de la taille des fichiers</li>
-            <li>Les fichiers téléchargés seront automatiquement renommés si nécessaire</li>
-        </ul>
+    <!-- Étape 2: Gestion des lots -->
+    <div id="step2" class="hidden bg-white rounded-xl shadow-xl p-8 mb-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+            <span class="bg-blue-600 text-white rounded-full w-8 h-8 inline-flex items-center justify-center mr-2">2</span>
+            Télécharger les lots
+        </h2>
+        
+        <div class="mb-6 bg-blue-50 rounded-lg p-4">
+            <div class="grid grid-cols-3 gap-4 text-center">
+                <div>
+                    <p class="text-gray-600 text-sm">Total URLs</p>
+                    <p class="text-2xl font-bold text-blue-600" id="totalUrls">0</p>
+                </div>
+                <div>
+                    <p class="text-gray-600 text-sm">Nombre de lots</p>
+                    <p class="text-2xl font-bold text-blue-600" id="totalBatches">0</p>
+                </div>
+                <div>
+                    <p class="text-gray-600 text-sm">Taille du lot</p>
+                    <p class="text-2xl font-bold text-blue-600" id="displayBatchSize">0</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="batchesList" class="space-y-3 mb-6"></div>
+
+        <button 
+            id="mergeBtn" 
+            class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled
+        >
+            <i class="fas fa-compress-arrows-alt mr-2"></i>Fusionner tous les lots en ZIP
+        </button>
+    </div>
+
+    <!-- Étape 3: Résultat final -->
+    <div id="step3" class="hidden bg-white rounded-xl shadow-xl p-8">
+        <h2 class="text-2xl font-bold text-green-800 mb-4">
+            <i class="fas fa-check-circle mr-2"></i>Téléchargement terminé !
+        </h2>
+        <div id="finalStats" class="mb-4"></div>
+        <a 
+            id="finalDownloadLink" 
+            href="#" 
+            class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition"
+        >
+            <i class="fas fa-file-archive mr-2"></i>Télécharger le ZIP final
+        </a>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    window.addEventListener('DOMContentLoaded', function() {
-        fetch('/downloader/cleanup', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        }).catch(err => console.error('Cleanup error:', err));
-    });
+let currentMode = 'text';
+let sessionId = null;
+let batchesData = {};
+
+document.getElementById('textModeBtn').addEventListener('click', function() {
+    currentMode = 'text';
+    document.getElementById('textMode').classList.remove('hidden');
+    document.getElementById('csvMode').classList.add('hidden');
+    this.classList.remove('bg-gray-200', 'text-gray-700');
+    this.classList.add('bg-blue-600', 'text-white');
+    document.getElementById('csvModeBtn').classList.remove('bg-blue-600', 'text-white');
+    document.getElementById('csvModeBtn').classList.add('bg-gray-200', 'text-gray-700');
+});
+
+document.getElementById('csvModeBtn').addEventListener('click', function() {
+    currentMode = 'csv';
+    document.getElementById('textMode').classList.add('hidden');
+    document.getElementById('csvMode').classList.remove('hidden');
+    this.classList.remove('bg-gray-200', 'text-gray-700');
+    this.classList.add('bg-blue-600', 'text-white');
+    document.getElementById('textModeBtn').classList.remove('bg-blue-600', 'text-white');
+    document.getElementById('textModeBtn').classList.add('bg-gray-200', 'text-gray-700');
+});
+
+document.getElementById('csvFile').addEventListener('change', function(e) {
+    if (e.target.files.length > 0) {
+        document.getElementById('csvFileName').textContent = e.target.files[0].name;
+        document.getElementById('csvFileName').classList.remove('hidden');
+    }
+});
+
+document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
     
-    let currentMode = 'text';
+    let urls = [];
     
-    document.getElementById('toggleErrorsBtn').addEventListener('click', function() {
-        const errorsList = document.getElementById('errorUrlsList');
-        const icon = this.querySelector('i');
-        
-        if (errorsList.classList.contains('hidden')) {
-            errorsList.classList.remove('hidden');
-            icon.classList.remove('fa-chevron-down');
-            icon.classList.add('fa-chevron-up');
-            this.innerHTML = '<i class="fas fa-chevron-up mr-2"></i>Masquer';
-        } else {
-            errorsList.classList.add('hidden');
-            icon.classList.remove('fa-chevron-up');
-            icon.classList.add('fa-chevron-down');
-            this.innerHTML = '<i class="fas fa-chevron-down mr-2"></i>Afficher';
-        }
-    });
-    
-    document.getElementById('textModeBtn').addEventListener('click', function() {
-        currentMode = 'text';
-        document.getElementById('textMode').classList.remove('hidden');
-        document.getElementById('csvMode').classList.add('hidden');
-        this.classList.remove('bg-gray-200', 'text-gray-700');
-        this.classList.add('bg-blue-600', 'text-white');
-        document.getElementById('csvModeBtn').classList.remove('bg-blue-600', 'text-white');
-        document.getElementById('csvModeBtn').classList.add('bg-gray-200', 'text-gray-700');
-    });
-    
-    document.getElementById('csvModeBtn').addEventListener('click', function() {
-        currentMode = 'csv';
-        document.getElementById('textMode').classList.add('hidden');
-        document.getElementById('csvMode').classList.remove('hidden');
-        this.classList.remove('bg-gray-200', 'text-gray-700');
-        this.classList.add('bg-blue-600', 'text-white');
-        document.getElementById('textModeBtn').classList.remove('bg-blue-600', 'text-white');
-        document.getElementById('textModeBtn').classList.add('bg-gray-200', 'text-gray-700');
-    });
-    
-    document.getElementById('csvFile').addEventListener('change', function(e) {
-        if (e.target.files.length > 0) {
-            document.getElementById('csvFileName').textContent = e.target.files[0].name;
-            document.getElementById('csvFileName').classList.remove('hidden');
-        }
-    });
-    
-    document.getElementById('downloadForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        let urls = [];
-        
-        if (currentMode === 'text') {
-            const urlsText = document.getElementById('urls').value;
-            urls = urlsText.split('\n').map(url => url.trim()).filter(url => url);
-        } else {
-            const csvFile = document.getElementById('csvFile').files[0];
-            if (!csvFile) {
-                showToast('Veuillez sélectionner un fichier CSV', 'error');
-                return;
-            }
-            
-            const text = await csvFile.text();
-            urls = text.split('\n').map(url => url.trim()).filter(url => url);
-        }
-        
-        if (urls.length === 0) {
-            showToast('Veuillez entrer au moins une URL', 'error');
+    if (currentMode === 'text') {
+        const urlsText = document.getElementById('urls').value;
+        urls = urlsText.split('\n').map(url => url.trim()).filter(url => url);
+    } else {
+        const csvFile = document.getElementById('csvFile').files[0];
+        if (!csvFile) {
+            showToast('Veuillez sélectionner un fichier CSV', 'error');
             return;
         }
         
-        document.getElementById('submitBtn').disabled = true;
-        document.getElementById('loadingSection').classList.remove('hidden');
-        document.getElementById('resultSection').classList.add('hidden');
+        const text = await csvFile.text();
+        urls = text.split('\n').map(url => url.trim()).filter(url => url);
+    }
+    
+    if (urls.length === 0) {
+        showToast('Veuillez entrer au moins une URL', 'error');
+        return;
+    }
+
+    const batchSize = parseInt(document.getElementById('batchSize').value);
+    
+    document.getElementById('prepareBtn').disabled = true;
+    
+    try {
+        const response = await fetch('/downloader/prepare_batches', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls: urls, batch_size: batchSize })
+        });
         
-        try {
-            const response = await fetch('/downloader/process', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ urls: urls })
-            });
+        const data = await response.json();
+        
+        if (data.success) {
+            sessionId = data.session_id;
+            batchesData = data.batches;
             
-            const data = await response.json();
+            document.getElementById('totalUrls').textContent = data.total_urls;
+            document.getElementById('totalBatches').textContent = data.total_batches;
+            document.getElementById('displayBatchSize').textContent = batchSize;
             
-            if (data.success) {
-                const sessionId = data.session_id;
-                document.getElementById('totalCount').textContent = data.total;
-                
-                let eventSource = null;
-                let reconnectAttempts = 0;
-                const maxReconnectAttempts = 5;
-                
-                function connectToProgress() {
-                    eventSource = new EventSource(`/downloader/progress/${sessionId}`);
-                    
-                    eventSource.onmessage = function(event) {
-                        reconnectAttempts = 0;
-                        const progress = JSON.parse(event.data);
-                        
-                        document.getElementById('statusMessage').textContent = progress.message || 'En cours...';
-                        document.getElementById('currentCount').textContent = progress.current || 0;
-                        document.getElementById('totalCount').textContent = progress.total || 0;
-                        document.getElementById('batchCurrent').textContent = progress.batch_current || 0;
-                        document.getElementById('batchTotal').textContent = progress.batch_total || 0;
-                        document.getElementById('successCount').textContent = progress.successful || 0;
-                        document.getElementById('failedCount').textContent = progress.failed || 0;
-                        
-                        const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
-                        document.getElementById('progressBar').style.width = percent + '%';
-                        document.getElementById('progressPercent').textContent = percent + '%';
-                        
-                        if (progress.status === 'ready') {
-                            eventSource.close();
-                            document.getElementById('loadingSection').classList.add('hidden');
-                            
-                            document.getElementById('resultStats').innerHTML = `
-                                <p class="mb-2"><strong>Total d'URLs:</strong> ${progress.total}</p>
-                                <p class="mb-2"><strong>Téléchargements réussis:</strong> ${progress.successful}</p>
-                                <p class="mb-2"><strong>Échecs:</strong> ${progress.failed}</p>
-                                <p class="mb-2"><strong>Fichier:</strong> ${progress.filename}</p>
-                            `;
-                            
-                            document.getElementById('downloadLink').href = `/downloader/download/${progress.download_id}`;
-                            
-                            if (progress.failed_urls && progress.failed_urls.length > 0) {
-                                const errorUrlsContent = document.getElementById('errorUrlsContent');
-                                errorUrlsContent.innerHTML = '';
-                                
-                                progress.failed_urls.forEach((item, index) => {
-                                    const errorDiv = document.createElement('div');
-                                    errorDiv.className = 'p-3 bg-red-50 border border-red-200 rounded-lg';
-                                    errorDiv.innerHTML = `
-                                        <p class="font-semibold text-red-800 mb-1">${index + 1}. ${item.error}</p>
-                                        <p class="text-gray-600 break-all">${item.url}</p>
-                                    `;
-                                    errorUrlsContent.appendChild(errorDiv);
-                                });
-                                
-                                document.getElementById('errorUrlsSection').classList.remove('hidden');
-                            }
-                            
-                            document.getElementById('resultSection').classList.remove('hidden');
-                            document.getElementById('submitBtn').disabled = false;
-                            showToast('Traitement terminé avec succès !', 'success');
-                        } else if (progress.status === 'error') {
-                            eventSource.close();
-                            document.getElementById('loadingSection').classList.add('hidden');
-                            document.getElementById('submitBtn').disabled = false;
-                            showToast('Erreur: ' + progress.message, 'error');
-                        }
-                    };
-                    
-                    eventSource.onerror = function() {
-                        eventSource.close();
-                        
-                        if (reconnectAttempts < maxReconnectAttempts) {
-                            reconnectAttempts++;
-                            console.log(`Reconnexion tentative ${reconnectAttempts}/${maxReconnectAttempts}...`);
-                            document.getElementById('statusMessage').textContent = `Reconnexion en cours (${reconnectAttempts}/${maxReconnectAttempts})...`;
-                            setTimeout(connectToProgress, 1000 * reconnectAttempts);
-                        } else {
-                            document.getElementById('loadingSection').classList.add('hidden');
-                            document.getElementById('submitBtn').disabled = false;
-                            showToast('Erreur de connexion au flux de progression. Rafraîchissez la page et réessayez.', 'error');
-                        }
-                    };
-                }
-                
-                connectToProgress();
-            } else {
-                showToast('Erreur: ' + data.error, 'error');
-                document.getElementById('loadingSection').classList.add('hidden');
-                document.getElementById('submitBtn').disabled = false;
-            }
-        } catch (error) {
-            showToast('Erreur de connexion: ' + error.message, 'error');
-            document.getElementById('loadingSection').classList.add('hidden');
-            document.getElementById('submitBtn').disabled = false;
+            renderBatches(data.batches);
+            
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+            showToast('Lots préparés avec succès !', 'success');
+        } else {
+            showToast('Erreur: ' + data.error, 'error');
+            document.getElementById('prepareBtn').disabled = false;
         }
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+        document.getElementById('prepareBtn').disabled = false;
+    }
+});
+
+function renderBatches(batches) {
+    const container = document.getElementById('batchesList');
+    container.innerHTML = '';
+    
+    Object.keys(batches).sort((a, b) => parseInt(a) - parseInt(b)).forEach(batchNum => {
+        const batch = batches[batchNum];
+        const batchDiv = document.createElement('div');
+        batchDiv.id = `batch-${batchNum}`;
+        batchDiv.className = 'border-2 border-gray-300 rounded-lg p-4';
+        batchDiv.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <h3 class="font-bold text-lg text-gray-800">Lot ${batchNum} / ${Object.keys(batches).length}</h3>
+                    <p class="text-sm text-gray-600">URLs ${batch.start} à ${batch.end} (${batch.count} fichiers)</p>
+                    <p class="text-sm mt-1" id="batch-status-${batchNum}">
+                        <span class="inline-block w-3 h-3 rounded-full bg-gray-400 mr-2"></span>
+                        <span>Pas commencé</span>
+                    </p>
+                </div>
+                <button 
+                    onclick="downloadBatch(${batchNum})" 
+                    id="batch-btn-${batchNum}"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition"
+                >
+                    <i class="fas fa-play mr-2"></i>Lancer
+                </button>
+            </div>
+            <div id="batch-progress-${batchNum}" class="hidden mt-3">
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="batch-bar-${batchNum}" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                </div>
+                <p class="text-sm text-gray-600 mt-1">
+                    <span id="batch-count-${batchNum}">0</span> / ${batch.count} -
+                    <span id="batch-success-${batchNum}" class="text-green-600">0 réussis</span>,
+                    <span id="batch-failed-${batchNum}" class="text-red-600">0 échecs</span>
+                </p>
+            </div>
+        `;
+        container.appendChild(batchDiv);
     });
+}
+
+async function downloadBatch(batchNum) {
+    const btn = document.getElementById(`batch-btn-${batchNum}`);
+    const statusEl = document.getElementById(`batch-status-${batchNum}`);
+    const progressEl = document.getElementById(`batch-progress-${batchNum}`);
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>En cours...';
+    statusEl.innerHTML = '<span class="inline-block w-3 h-3 rounded-full bg-blue-600 mr-2"></span><span>En cours...</span>';
+    progressEl.classList.remove('hidden');
+    
+    try {
+        const response = await fetch('/downloader/download_batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, batch_num: batchNum })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const batchSessionId = data.batch_session_id;
+            const eventSource = new EventSource(`/downloader/progress/${batchSessionId}`);
+            
+            eventSource.onmessage = function(event) {
+                const progress = JSON.parse(event.data);
+                
+                const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+                document.getElementById(`batch-bar-${batchNum}`).style.width = percent + '%';
+                document.getElementById(`batch-count-${batchNum}`).textContent = progress.current || 0;
+                document.getElementById(`batch-success-${batchNum}`).textContent = (progress.successful || 0) + ' réussis';
+                document.getElementById(`batch-failed-${batchNum}`).textContent = (progress.failed || 0) + ' échecs';
+                
+                if (progress.status === 'ready' || progress.status === 'completed') {
+                    eventSource.close();
+                    statusEl.innerHTML = '<span class="inline-block w-3 h-3 rounded-full bg-green-600 mr-2"></span><span class="text-green-600 font-semibold">Terminé</span>';
+                    btn.innerHTML = '<i class="fas fa-check mr-2"></i>Terminé';
+                    btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    btn.classList.add('bg-green-600');
+                    
+                    batchesData[batchNum].completed = true;
+                    batchesData[batchNum].download_id = progress.download_id;
+                    checkAllBatchesComplete();
+                } else if (progress.status === 'error') {
+                    eventSource.close();
+                    statusEl.innerHTML = '<span class="inline-block w-3 h-3 rounded-full bg-red-600 mr-2"></span><span class="text-red-600 font-semibold">Erreur</span>';
+                    btn.innerHTML = '<i class="fas fa-redo mr-2"></i>Réessayer';
+                    btn.disabled = false;
+                    showToast('Erreur lot ' + batchNum + ': ' + progress.message, 'error');
+                }
+            };
+            
+            eventSource.onerror = function() {
+                eventSource.close();
+                statusEl.innerHTML = '<span class="inline-block w-3 h-3 rounded-full bg-red-600 mr-2"></span><span class="text-red-600">Erreur connexion</span>';
+                btn.innerHTML = '<i class="fas fa-redo mr-2"></i>Réessayer';
+                btn.disabled = false;
+            };
+        }
+    } catch (error) {
+        statusEl.innerHTML = '<span class="inline-block w-3 h-3 rounded-full bg-red-600 mr-2"></span><span class="text-red-600">Erreur</span>';
+        btn.innerHTML = '<i class="fas fa-redo mr-2"></i>Réessayer';
+        btn.disabled = false;
+        showToast('Erreur: ' + error.message, 'error');
+    }
+}
+
+function checkAllBatchesComplete() {
+    const allComplete = Object.values(batchesData).every(batch => batch.completed);
+    document.getElementById('mergeBtn').disabled = !allComplete;
+    
+    if (allComplete) {
+        showToast('Tous les lots sont téléchargés ! Vous pouvez fusionner.', 'success');
+    }
+}
+
+document.getElementById('mergeBtn').addEventListener('click', async function() {
+    this.disabled = true;
+    this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Fusion en cours...';
+    
+    try {
+        const downloadIds = Object.values(batchesData).map(b => b.download_id).filter(id => id);
+        
+        const response = await fetch('/downloader/merge_batches', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, download_ids: downloadIds })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('finalStats').innerHTML = `
+                <p class="mb-2"><strong>Total URLs:</strong> ${data.total_urls}</p>
+                <p class="mb-2"><strong>Fichiers téléchargés:</strong> ${data.total_files}</p>
+                <p class="mb-2"><strong>Fichier:</strong> ${data.filename}</p>
+            `;
+            document.getElementById('finalDownloadLink').href = `/downloader/download/${data.download_id}`;
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('step3').classList.remove('hidden');
+            showToast('Fusion terminée !', 'success');
+        } else {
+            showToast('Erreur fusion: ' + data.error, 'error');
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-compress-arrows-alt mr-2"></i>Fusionner tous les lots en ZIP';
+        }
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+        this.disabled = false;
+        this.innerHTML = '<i class="fas fa-compress-arrows-alt mr-2"></i>Fusionner tous les lots en ZIP';
+    }
+});
 </script>
 {% endblock %}

@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('downloader', __name__, url_prefix='/downloader')
 
 downloads_registry = {}
+batches_registry = {}
 
 @bp.route('/')
 def index():
@@ -78,63 +79,172 @@ def download_worker(session_id, urls_list, temp_folder):
             status='error'
         )
 
-@bp.route('/process', methods=['POST'])
-def process():
+@bp.route('/prepare_batches', methods=['POST'])
+def prepare_batches():
+    """Prépare les lots sans les télécharger"""
     logger.info("=" * 80)
-    logger.info("NOUVELLE REQUÊTE /downloader/process")
-    logger.info(f"Headers: {dict(request.headers)}")
+    logger.info("NOUVELLE REQUÊTE /downloader/prepare_batches")
     
     data = request.get_json()
-    logger.info(f"Données reçues: {data}")
-    
     urls = data.get('urls', [])
-    logger.info(f"Nombre d'URLs brutes reçues: {len(urls) if urls else 0}")
+    batch_size = data.get('batch_size', 100)
     
     if not urls:
-        logger.warning("ERREUR: Aucune URL fournie")
         return jsonify({'success': False, 'error': 'Aucune URL fournie'}), 400
     
     urls_list = [url.strip() for url in urls if url.strip()]
-    logger.info(f"Nombre d'URLs valides après nettoyage: {len(urls_list)}")
     
     if not urls_list:
-        logger.warning("ERREUR: Aucune URL valide après nettoyage")
         return jsonify({'success': False, 'error': 'Aucune URL valide fournie'}), 400
     
     session_id = str(uuid.uuid4())
-    logger.info(f"Session créée: {session_id}")
+    logger.info(f"Session créée: {session_id} avec {len(urls_list)} URLs et lots de {batch_size}")
     
-    progress_manager.create_session(session_id)
-    progress_manager.update(session_id,
-        status='analyzing',
-        total=len(urls_list),
-        message=f'Analyse de {len(urls_list)} URLs...'
-    )
+    # Découper en lots
+    batches = {}
+    total_batches = (len(urls_list) + batch_size - 1) // batch_size
     
-    logger.info(f"Progression initialisée pour session {session_id}")
+    for i in range(total_batches):
+        start_idx = i * batch_size
+        end_idx = min((i + 1) * batch_size, len(urls_list))
+        batch_num = i + 1
+        
+        batches[batch_num] = {
+            'start': start_idx + 1,
+            'end': end_idx,
+            'count': end_idx - start_idx,
+            'urls': urls_list[start_idx:end_idx],
+            'completed': False,
+            'download_id': None
+        }
     
-    # Logger le démarrage du téléchargement
-    add_log(
-        'download',
-        f'Démarrage du téléchargement de {len(urls_list)} URLs',
-        status='info'
-    )
+    batches_registry[session_id] = {
+        'total_urls': len(urls_list),
+        'batch_size': batch_size,
+        'batches': batches
+    }
     
-    thread = threading.Thread(
-        target=download_worker,
-        args=(session_id, urls_list, current_app.config['TEMP_FOLDER'])
-    )
-    thread.daemon = True
-    thread.start()
-    
-    logger.info(f"Thread de téléchargement démarré pour session {session_id}")
+    logger.info(f"Lots préparés: {total_batches} lots pour session {session_id}")
     logger.info("=" * 80)
     
     return jsonify({
         'success': True,
         'session_id': session_id,
-        'total': len(urls_list)
+        'total_urls': len(urls_list),
+        'total_batches': total_batches,
+        'batches': batches
     })
+
+@bp.route('/download_batch', methods=['POST'])
+def download_batch():
+    """Télécharge un lot spécifique"""
+    logger.info("=" * 80)
+    logger.info("NOUVELLE REQUÊTE /downloader/download_batch")
+    
+    data = request.get_json()
+    session_id = data.get('session_id')
+    batch_num = data.get('batch_num')
+    
+    if not session_id or session_id not in batches_registry:
+        return jsonify({'success': False, 'error': 'Session invalide'}), 400
+    
+    batch_data = batches_registry[session_id]['batches'].get(batch_num)
+    if not batch_data:
+        return jsonify({'success': False, 'error': 'Lot invalide'}), 400
+    
+    batch_session_id = str(uuid.uuid4())
+    logger.info(f"Téléchargement lot {batch_num} de session {session_id}, batch_session {batch_session_id}")
+    
+    progress_manager.create_session(batch_session_id)
+    progress_manager.update(batch_session_id,
+        status='analyzing',
+        total=batch_data['count'],
+        message=f"Téléchargement du lot {batch_num}..."
+    )
+    
+    thread = threading.Thread(
+        target=download_worker,
+        args=(batch_session_id, batch_data['urls'], current_app.config['TEMP_FOLDER'])
+    )
+    thread.daemon = True
+    thread.start()
+    
+    logger.info(f"Thread démarré pour lot {batch_num}")
+    logger.info("=" * 80)
+    
+    return jsonify({
+        'success': True,
+        'batch_session_id': batch_session_id,
+        'batch_num': batch_num
+    })
+
+@bp.route('/merge_batches', methods=['POST'])
+def merge_batches():
+    """Fusionne tous les lots téléchargés en un seul ZIP"""
+    logger.info("=" * 80)
+    logger.info("NOUVELLE REQUÊTE /downloader/merge_batches")
+    
+    data = request.get_json()
+    session_id = data.get('session_id')
+    download_ids = data.get('download_ids', [])
+    
+    if not session_id or session_id not in batches_registry:
+        return jsonify({'success': False, 'error': 'Session invalide'}), 400
+    
+    if not download_ids:
+        return jsonify({'success': False, 'error': 'Aucun lot à fusionner'}), 400
+    
+    try:
+        import zipfile
+        
+        # Créer le ZIP final
+        final_zip_id = str(uuid.uuid4())[:8]
+        final_zip_name = f'pdfs_merged_{final_zip_id}.zip'
+        final_zip_path = os.path.join(current_app.config['TEMP_FOLDER'], final_zip_name)
+        
+        total_files = 0
+        
+        with zipfile.ZipFile(final_zip_path, 'w', zipfile.ZIP_DEFLATED) as final_zipf:
+            for download_id in download_ids:
+                if download_id in downloads_registry:
+                    batch_zip_path = downloads_registry[download_id]['file_path']
+                    
+                    if os.path.exists(batch_zip_path):
+                        logger.info(f"Extraction de {batch_zip_path}")
+                        
+                        with zipfile.ZipFile(batch_zip_path, 'r') as batch_zipf:
+                            for file_info in batch_zipf.filelist:
+                                file_data = batch_zipf.read(file_info.filename)
+                                final_zipf.writestr(file_info.filename, file_data)
+                                total_files += 1
+        
+        download_id = str(uuid.uuid4())
+        downloads_registry[download_id] = {
+            'file_path': final_zip_path,
+            'filename': final_zip_name,
+            'session_id': session_id
+        }
+        
+        logger.info(f"Fusion terminée: {total_files} fichiers dans {final_zip_name}")
+        logger.info("=" * 80)
+        
+        add_log(
+            'download',
+            f'Fusion terminée: {total_files} fichiers PDF fusionnés',
+            status='success'
+        )
+        
+        return jsonify({
+            'success': True,
+            'download_id': download_id,
+            'filename': final_zip_name,
+            'total_files': total_files,
+            'total_urls': batches_registry[session_id]['total_urls']
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur fusion: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/progress/<session_id>')
 def progress(session_id):
