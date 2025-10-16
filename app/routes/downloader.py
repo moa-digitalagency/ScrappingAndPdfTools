@@ -39,7 +39,7 @@ def cleanup():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-def download_worker(session_id, urls_list, temp_folder):
+def download_worker(session_id, urls_list, temp_folder, batch_num=None, main_session_id=None):
     """Worker thread pour le téléchargement en arrière-plan"""
     try:
         result = download_pdfs_and_zip(urls_list, temp_folder, session_id=session_id)
@@ -57,6 +57,37 @@ def download_worker(session_id, urls_list, temp_folder):
                 filename=result['filename'],
                 failed_urls=result.get('failed_urls', [])
             )
+            
+            # Si c'est un lot manuel, sauvegarder les métadonnées dans session.json ET mettre à jour le registre mémoire
+            if batch_num and main_session_id and main_session_id in batches_registry:
+                session_folder = batches_registry[main_session_id]['session_folder']
+                session_file = os.path.join(session_folder, 'session.json')
+                
+                # Mettre à jour le registre en mémoire (pour cohérence immédiate)
+                batch_data = batches_registry[main_session_id]['batches'].get(batch_num)
+                if batch_data:
+                    batch_data['completed'] = True
+                    batch_data['download_id'] = download_id
+                    batch_data['zip_path'] = result['zip_path']
+                    batch_data['zip_filename'] = result['filename']
+                    batch_data['success_count'] = result.get('success_count', 0)
+                    batch_data['failed_urls'] = result.get('failed_urls', [])
+                
+                # Sauvegarder sur disque (pour persistance)
+                try:
+                    with open(session_file, 'r') as f:
+                        session_info = json.load(f)
+                    session_info['batches'][str(batch_num)]['completed'] = True
+                    session_info['batches'][str(batch_num)]['download_id'] = download_id
+                    session_info['batches'][str(batch_num)]['zip_path'] = result['zip_path']
+                    session_info['batches'][str(batch_num)]['zip_filename'] = result['filename']
+                    session_info['batches'][str(batch_num)]['success_count'] = result.get('success_count', 0)
+                    session_info['batches'][str(batch_num)]['failed_urls'] = result.get('failed_urls', [])
+                    with open(session_file, 'w') as f:
+                        json.dump(session_info, f)
+                    logger.info(f"Métadonnées lot {batch_num} sauvegardées (mémoire + disque)")
+                except Exception as e:
+                    logger.error(f"Erreur sauvegarde métadonnées lot {batch_num}: {str(e)}")
             
             # Logger le succès
             failed_count = len(result.get('failed_urls', []))
@@ -184,7 +215,7 @@ def download_batch():
     # Stocker dans le dossier de session
     thread = threading.Thread(
         target=download_worker,
-        args=(batch_session_id, batch_data['urls'], session_folder)
+        args=(batch_session_id, batch_data['urls'], session_folder, batch_num, session_id)
     )
     thread.daemon = True
     thread.start()
@@ -252,20 +283,28 @@ def start_auto_download():
                         'session_id': batch_session_id
                     }
                     
-                    # Mettre à jour le batch
+                    # Mettre à jour TOUTES les métadonnées dans le registre mémoire (cohérence immédiate)
                     batch_data['completed'] = True
                     batch_data['download_id'] = download_id
+                    batch_data['zip_path'] = result['zip_path']
+                    batch_data['zip_filename'] = result['filename']
+                    batch_data['success_count'] = result.get('success_count', 0)
+                    batch_data['failed_urls'] = result.get('failed_urls', [])
                     
-                    # Sauvegarder la progression dans le fichier session
+                    # Sauvegarder TOUTES les métadonnées dans le fichier session (persistance complète)
                     session_file = os.path.join(session_folder, 'session.json')
                     with open(session_file, 'r') as f:
                         session_info = json.load(f)
                     session_info['batches'][str(batch_num)]['completed'] = True
                     session_info['batches'][str(batch_num)]['download_id'] = download_id
+                    session_info['batches'][str(batch_num)]['zip_path'] = result['zip_path']
+                    session_info['batches'][str(batch_num)]['zip_filename'] = result['filename']
+                    session_info['batches'][str(batch_num)]['success_count'] = result.get('success_count', 0)
+                    session_info['batches'][str(batch_num)]['failed_urls'] = result.get('failed_urls', [])
                     with open(session_file, 'w') as f:
                         json.dump(session_info, f)
                     
-                    logger.info(f"AUTO: Lot {batch_num} terminé avec succès")
+                    logger.info(f"AUTO: Lot {batch_num} terminé - {result['filename']} (mémoire + disque synchronisés)")
                 else:
                     logger.error(f"AUTO: Lot {batch_num} échoué")
             
@@ -348,24 +387,28 @@ def load_session(session_id):
         with open(session_file, 'r') as f:
             session_data = json.load(f)
         
-        # Recharger dans le registre
+        # Recharger dans le registre avec métadonnées complètes
         batches = {}
         for batch_num_str, batch_info in session_data['batches'].items():
             batch_num = int(batch_num_str)
             batches[batch_num] = batch_info
             
-            # Recharger les download_ids dans le registre
+            # Recharger les download_ids dans le registre avec métadonnées persistées
             if batch_info.get('download_id') and batch_info.get('completed'):
                 download_id = batch_info['download_id']
-                # Trouver le fichier ZIP correspondant
-                zip_files = [f for f in os.listdir(session_folder) if f.endswith('.zip')]
-                for zip_file in zip_files:
-                    zip_path = os.path.join(session_folder, zip_file)
+                zip_path = batch_info.get('zip_path')
+                zip_filename = batch_info.get('zip_filename')
+                
+                # Vérifier que le fichier existe toujours
+                if zip_path and os.path.exists(zip_path):
                     downloads_registry[download_id] = {
                         'file_path': zip_path,
-                        'filename': zip_file,
+                        'filename': zip_filename,
                         'session_id': session_id
                     }
+                    logger.info(f"Lot {batch_num} rechargé: {zip_filename}")
+                else:
+                    logger.warning(f"Lot {batch_num}: fichier ZIP introuvable: {zip_path}")
         
         batches_registry[session_id] = {
             'total_urls': session_data['total_urls'],
