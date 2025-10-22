@@ -30,6 +30,11 @@ env/
 instance/
 .webassets-cache
 
+# Environment variables
+.env
+.env.local
+.env.production
+
 # Temporary files
 tmp/
 *.log
