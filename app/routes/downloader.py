@@ -244,11 +244,25 @@ def start_auto_download():
     auto_session_id = str(uuid.uuid4())
     
     def auto_download_worker(main_session_id, auto_sess_id):
-        """Worker qui lance séquentiellement tous les lots"""
+        """Worker qui lance séquentiellement tous les lots avec gestion robuste des erreurs"""
         try:
-            session_data = batches_registry[main_session_id]
+            # Charger la session depuis le disque pour robustesse
+            temp_folder = current_app.config['TEMP_FOLDER']
+            session_folder = os.path.join(temp_folder, f'session_{main_session_id}')
+            session_file = os.path.join(session_folder, 'session.json')
+            
+            if not os.path.exists(session_file):
+                logger.error(f"AUTO: Session {main_session_id} introuvable sur disque")
+                progress_manager.update(auto_sess_id,
+                    status='error',
+                    message="Session introuvable"
+                )
+                return
+            
+            with open(session_file, 'r') as f:
+                session_data = json.load(f)
+            
             batches = session_data['batches']
-            session_folder = session_data['session_folder']
             total_batches = len(batches)
             
             progress_manager.create_session(auto_sess_id)
@@ -256,13 +270,21 @@ def start_auto_download():
                 status='processing',
                 current=0,
                 total=total_batches,
-                message=f"Initialisation du téléchargement automatique..."
+                message=f"Initialisation du téléchargement automatique de {total_batches} lots..."
             )
             
             completed_count = 0
+            failed_batches = []
             
-            for batch_num in sorted(batches.keys()):
-                batch_data = batches[batch_num]
+            for batch_num_str in sorted(batches.keys(), key=lambda x: int(x)):
+                batch_num = int(batch_num_str)
+                batch_data = batches[batch_num_str]
+                
+                # Passer les lots déjà complétés
+                if batch_data.get('completed', False):
+                    logger.info(f"AUTO: Lot {batch_num} déjà complété, passage au suivant")
+                    completed_count += 1
+                    continue
                 
                 # Créer une sous-session pour ce lot
                 batch_session_id = str(uuid.uuid4())
@@ -276,64 +298,82 @@ def start_auto_download():
                     message=f"Traitement du lot {batch_num}/{total_batches} en cours..."
                 )
                 
-                # Télécharger ce lot
-                result = download_pdfs_and_zip(
-                    batch_data['urls'],
-                    session_folder,
-                    session_id=batch_session_id
-                )
-                
-                if result['success']:
-                    download_id = str(uuid.uuid4())
-                    downloads_registry[download_id] = {
-                        'file_path': result['zip_path'],
-                        'filename': result['filename'],
-                        'session_id': batch_session_id
-                    }
-                    
-                    # Mettre à jour TOUTES les métadonnées dans le registre mémoire (cohérence immédiate)
-                    batch_data['completed'] = True
-                    batch_data['download_id'] = download_id
-                    batch_data['zip_path'] = result['zip_path']
-                    batch_data['zip_filename'] = result['filename']
-                    batch_data['success_count'] = result.get('success_count', 0)
-                    batch_data['failed_urls'] = result.get('failed_urls', [])
-                    
-                    # Sauvegarder TOUTES les métadonnées dans le fichier session (persistance complète)
-                    session_file = os.path.join(session_folder, 'session.json')
-                    with open(session_file, 'r') as f:
-                        session_info = json.load(f)
-                    session_info['batches'][str(batch_num)]['completed'] = True
-                    session_info['batches'][str(batch_num)]['download_id'] = download_id
-                    session_info['batches'][str(batch_num)]['zip_path'] = result['zip_path']
-                    session_info['batches'][str(batch_num)]['zip_filename'] = result['filename']
-                    session_info['batches'][str(batch_num)]['success_count'] = result.get('success_count', 0)
-                    session_info['batches'][str(batch_num)]['failed_urls'] = result.get('failed_urls', [])
-                    with open(session_file, 'w') as f:
-                        json.dump(session_info, f)
-                    
-                    completed_count += 1
-                    
-                    progress_manager.update(auto_sess_id,
-                        status='processing',
-                        current=completed_count,
-                        total=total_batches,
-                        message=f"Lot {batch_num}/{total_batches} terminé - {result['filename']}"
+                # Télécharger ce lot avec gestion d'erreur
+                try:
+                    result = download_pdfs_and_zip(
+                        batch_data['urls'],
+                        session_folder,
+                        session_id=batch_session_id
                     )
                     
-                    logger.info(f"AUTO: Lot {batch_num} terminé - {result['filename']} (mémoire + disque synchronisés)")
-                else:
-                    logger.error(f"AUTO: Lot {batch_num} échoué")
+                    if result['success']:
+                        download_id = str(uuid.uuid4())
+                        downloads_registry[download_id] = {
+                            'file_path': result['zip_path'],
+                            'filename': result['filename'],
+                            'session_id': batch_session_id
+                        }
+                        
+                        # Mettre à jour le registre mémoire si présent
+                        if main_session_id in batches_registry:
+                            batch_data_mem = batches_registry[main_session_id]['batches'].get(batch_num)
+                            if batch_data_mem:
+                                batch_data_mem['completed'] = True
+                                batch_data_mem['download_id'] = download_id
+                                batch_data_mem['zip_path'] = result['zip_path']
+                                batch_data_mem['zip_filename'] = result['filename']
+                                batch_data_mem['success_count'] = result.get('success_count', 0)
+                                batch_data_mem['failed_urls'] = result.get('failed_urls', [])
+                        
+                        # Sauvegarder sur disque (persistance)
+                        with open(session_file, 'r') as f:
+                            session_info = json.load(f)
+                        session_info['batches'][batch_num_str]['completed'] = True
+                        session_info['batches'][batch_num_str]['download_id'] = download_id
+                        session_info['batches'][batch_num_str]['zip_path'] = result['zip_path']
+                        session_info['batches'][batch_num_str]['zip_filename'] = result['filename']
+                        session_info['batches'][batch_num_str]['success_count'] = result.get('success_count', 0)
+                        session_info['batches'][batch_num_str]['failed_urls'] = result.get('failed_urls', [])
+                        with open(session_file, 'w') as f:
+                            json.dump(session_info, f, indent=2)
+                        
+                        completed_count += 1
+                        
+                        progress_manager.update(auto_sess_id,
+                            status='processing',
+                            current=completed_count,
+                            total=total_batches,
+                            message=f"Lot {batch_num}/{total_batches} terminé - {result['filename']}"
+                        )
+                        
+                        logger.info(f"AUTO: Lot {batch_num} terminé - {result['filename']}")
+                    else:
+                        error_msg = result.get('error', 'Erreur inconnue')
+                        logger.error(f"AUTO: Lot {batch_num} échoué - {error_msg}")
+                        failed_batches.append({'batch_num': batch_num, 'error': error_msg})
+                        
+                except Exception as e:
+                    logger.error(f"AUTO: Erreur lors du traitement du lot {batch_num}: {str(e)}", exc_info=True)
+                    failed_batches.append({'batch_num': batch_num, 'error': str(e)})
             
-            # Tous les lots terminés
-            progress_manager.update(auto_sess_id,
-                status='ready',
-                current=total_batches,
-                total=total_batches,
-                message=f"Tous les lots téléchargés ({total_batches}/{total_batches})"
-            )
-            
-            logger.info(f"AUTO: Tous les lots terminés pour session {main_session_id}")
+            # Tous les lots traités
+            if failed_batches:
+                failed_str = ', '.join([f"Lot {f['batch_num']}" for f in failed_batches])
+                progress_manager.update(auto_sess_id,
+                    status='ready',
+                    current=completed_count,
+                    total=total_batches,
+                    message=f"Téléchargement terminé: {completed_count}/{total_batches} lots réussis. Échecs: {failed_str}"
+                )
+                logger.warning(f"AUTO: Terminé avec {len(failed_batches)} lots en échec")
+            else:
+                progress_manager.update(auto_sess_id,
+                    status='ready',
+                    current=completed_count,
+                    total=total_batches,
+                    message=f"Tous les lots téléchargés avec succès ({completed_count}/{total_batches})"
+                )
+                logger.info(f"AUTO: Tous les lots terminés pour session {main_session_id}")
             
         except Exception as e:
             logger.error(f"AUTO: Erreur globale: {str(e)}", exc_info=True)
@@ -562,6 +602,7 @@ def progress(session_id):
 
 @bp.route('/download/<download_id>')
 def download(download_id):
+    """Télécharge le ZIP final fusionné (avec suppression)"""
     if download_id not in downloads_registry:
         return "Fichier introuvable", 404
     
@@ -581,3 +622,19 @@ def download(download_id):
             del downloads_registry[download_id]
     
     return response
+
+@bp.route('/download_batch_zip/<download_id>')
+def download_batch_zip(download_id):
+    """Télécharge le ZIP d'un lot individuel (sans suppression pour permettre plusieurs téléchargements)"""
+    if download_id not in downloads_registry:
+        return "Fichier introuvable", 404
+    
+    file_info = downloads_registry[download_id]
+    file_path = file_info['file_path']
+    filename = file_info['filename']
+    
+    if not os.path.exists(file_path):
+        return "Fichier introuvable", 404
+    
+    # Téléchargement sans suppression pour permettre téléchargements multiples
+    return send_file(file_path, as_attachment=True, download_name=filename)
