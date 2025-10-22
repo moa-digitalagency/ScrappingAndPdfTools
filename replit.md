@@ -105,12 +105,39 @@ DEPLOYMENT.md         # Guide de déploiement
 - **OPENROUTER_API_KEY**: Clé API OpenRouter pour analyse intelligente (OBLIGATOIRE)
   - Nécessaire pour l'analyse IA des PDFs
   - Disponible sur https://openrouter.ai/
+- **ADMIN_SECRET**: Secret pour mise à jour Git (OBLIGATOIRE en production)
+  - Nécessaire pour accéder à la fonctionnalité de mise à jour du code
+  - Protège l'accès à la route /git_pull
 
 ## Préférences Utilisateur
 - Interface en français
 - Interface professionnelle avec Tailwind CSS
 
 ## Changements Récents
+- **22 octobre 2025 (Version 3.5 - Gestion Avancée du Téléchargement Automatique et Sécurité)** :
+  - ✅ **Téléchargement automatique robuste** :
+    - Rechargement de session.json depuis le disque pour robustesse après redémarrage
+    - Skip automatique des lots déjà complétés (évite les doublons)
+    - Gestion d'erreur avec continue sur échec (le processus ne s'arrête plus)
+    - Rapport détaillé des lots en échec dans les logs
+    - Persistance complète de l'état pour récupération après crash serveur
+  - ✅ **Téléchargement individuel des lots** :
+    - Nouveau bouton "Télécharger ZIP" pour chaque lot terminé
+    - Route dédiée `/download_batch_zip/<download_id>` sans suppression automatique
+    - Fichiers ZIP conservés pour téléchargements multiples
+    - Interface mise à jour dynamiquement avec remplacement du bouton "Lancer"
+  - ✅ **Mise à jour Git sécurisée** :
+    - Nouvelle route POST `/git_pull` avec authentification par secret
+    - Protection par variable d'environnement `ADMIN_SECRET` (obligatoire)
+    - Vérification dans header `X-Admin-Secret` ou JSON `admin_secret`
+    - Logs des tentatives non autorisées pour traçabilité
+    - Interface utilisateur avec prompt pour saisie du secret
+    - Retour 403 pour accès non autorisés
+  - ✅ **Améliorations de sécurité** :
+    - Élimination de la faille critique d'exécution de commandes git non authentifiées
+    - Documentation complète de ADMIN_SECRET dans Configuration Requise
+    - Système d'authentification robuste avec logging des tentatives d'accès
+
 - **16 octobre 2025 (Version 3.4 - Système de Logs Persistants)** :
   - ✅ **Système de logs persistants avec SQLite** :
     - Base de données SQLite pour stocker tous les logs d'actions
