@@ -5,7 +5,70 @@ Toutes les modifications notables apportées à PDF Tools seront documentées da
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
-## [Non publié]
+## [3.5.0] - 2025-10-22
+
+### Ajouté
+- 🔒 **Mise à jour Git sécurisée** : Nouvelle fonctionnalité de mise à jour du code via interface web
+  - Route POST `/git_pull` avec authentification par secret
+  - Protection par variable d'environnement `ADMIN_SECRET` (obligatoire)
+  - Interface utilisateur avec bouton dans la navigation
+  - Logs des tentatives d'accès non autorisées
+- 📦 **Téléchargement individuel des lots** : Boutons de téléchargement pour chaque lot ZIP terminé
+  - Route dédiée `/download_batch_zip/<download_id>` sans suppression automatique
+  - Fichiers ZIP conservés pour téléchargements multiples
+  - Interface mise à jour dynamiquement avec JavaScript
+
+### Modifié
+- 🔄 **Téléchargement automatique robuste** : Amélioration majeure de la fiabilité
+  - Rechargement de session.json depuis le disque pour robustesse après redémarrage
+  - Skip automatique des lots déjà complétés (évite les doublons)
+  - Gestion d'erreur avec continue sur échec (le processus ne s'arrête plus)
+  - Rapport détaillé des lots en échec dans les logs
+  - Persistance complète de l'état pour récupération après crash serveur
+
+### Sécurité
+- ✅ Élimination de la faille critique d'exécution de commandes git non authentifiées
+- ✅ Documentation complète de ADMIN_SECRET dans Configuration Requise
+- ✅ Système d'authentification robuste avec logging des tentatives d'accès
+
+## [3.4.0] - 2025-10-16
+
+### Ajouté
+- 📋 **Système de logs persistants avec SQLite** :
+  - Base de données SQLite pour stocker tous les logs d'actions
+  - Enregistrement de tous les événements : démarrages, succès, erreurs
+  - Filtrage par type (download, merger, analyzer) et statut (info, success, error)
+  - Page dédiée `/logs/` pour consulter l'historique complet
+- 📧 **Page de contact** :
+  - Nouvelle page `/contact/` avec informations de MOA Digital Agency
+  - Email : moa@myoneart.com
+  - Site web : www.myoneart.com
+- 🧭 **Navigation simplifiée** :
+  - Header avec 3 liens : Accueil, Log, Contact
+  - Interface claire et professionnelle
+- ©️ **En-têtes de copyright** :
+  - Tous les fichiers Python incluent les informations de développeur
+  - Branding MOA Digital Agency LLC
+
+## [3.3.0] - 2025-10-16
+
+### Ajouté
+- 💓 **Heartbeat SSE** : Système de heartbeat pour maintenir les connexions actives
+- 🔄 **Reconnexion automatique** : 5 tentatives progressives pour SSE
+- 🧹 **Nettoyage automatique** : Suppression des fichiers temporaires > 1h d'ancienneté
+- 📍 **Endpoint de nettoyage** : Route `/cleanup` dédiée pour libérer l'espace
+- ⚠️ **Affichage des erreurs** : Liste détaillée des URLs en échec avec messages d'erreur
+
+### Modifié
+- 🚀 **SSE ultra-robuste** : Support fiable pour 2900+ URLs
+- ⚡ **Fréquence optimisée** : Mise à jour toutes les 0.3s au lieu de 0.5s
+- 📤 **Headers anti-buffering** : Pour streaming fiable
+
+### Corrigé
+- 🐛 **Bug payload 'ready'** : Correction de la comparaison JSON vs références
+- 📡 **Transmission des erreurs** : Transmission complète des `failed_urls` au frontend
+
+## [3.2.0] - 2025-10-16
 
 ### Ajouté
 - 🎯 **Progression en temps réel** : Affichage de la progression détaillée pour toutes les opérations

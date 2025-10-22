@@ -335,6 +335,7 @@ docker-compose up -d
 |----------|------|--------|-------------|
 | `SECRET_KEY` | String | - | Clé secrète Flask (obligatoire) |
 | `OPENROUTER_API_KEY` | String | - | Clé API OpenRouter (optionnel) |
+| `ADMIN_SECRET` | String | - | Secret pour mise à jour Git (obligatoire en production) |
 
 ### Variables Optionnelles (Avancées)
 
@@ -412,7 +413,33 @@ heroku logs --tail
 
 ## Mise à Jour de l'Application
 
-### Sur VPS
+### Via l'Interface Web (Recommandé)
+
+L'application dispose d'une fonctionnalité de mise à jour automatique via l'interface web :
+
+1. **Configurer ADMIN_SECRET** (obligatoire) :
+   ```bash
+   # Générer un secret sécurisé
+   python -c "import secrets; print(secrets.token_hex(32))"
+   
+   # Ajouter à vos variables d'environnement
+   export ADMIN_SECRET="votre_secret_généré"
+   ```
+
+2. **Utiliser l'interface web** :
+   - Cliquer sur le bouton **"Mise à jour Git"** dans la navigation
+   - Entrer le secret administrateur (ADMIN_SECRET)
+   - Confirmer l'opération
+   - Le serveur va automatiquement exécuter `git pull`
+   - Redémarrer l'application si nécessaire
+
+3. **Sécurité** :
+   - ✅ Accès protégé par secret d'administration
+   - ✅ Logs de toutes les tentatives d'accès
+   - ✅ Retour 403 pour accès non autorisés
+   - ✅ Idéal pour les mises à jour rapides en production
+
+### Sur VPS (Méthode Manuelle)
 
 ```bash
 cd /var/www/pdf-tools
@@ -434,6 +461,17 @@ git push heroku main
 docker-compose down
 git pull origin main
 docker-compose up -d --build
+```
+
+### Sur Replit
+
+```bash
+# Option 1 : Interface Web (Recommandé)
+# Utiliser le bouton "Mise à jour Git" dans la navigation
+
+# Option 2 : Shell
+git pull origin main
+# L'application redémarrera automatiquement
 ```
 
 ---
