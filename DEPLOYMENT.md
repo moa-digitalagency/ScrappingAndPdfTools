@@ -506,6 +506,7 @@ gunicorn \
 ### Checklist de Sécurité
 
 - ✅ SECRET_KEY unique et complexe
+- ✅ ADMIN_SECRET configuré pour mise à jour Git
 - ✅ HTTPS activé (SSL/TLS)
 - ✅ Firewall configuré
 - ✅ Mises à jour régulières
