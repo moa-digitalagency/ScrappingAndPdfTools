@@ -15,7 +15,7 @@ www.myoneart.com
         <h1 class="text-4xl font-bold text-gray-800 mb-3">
             <i class="fas fa-gavel text-amber-600 mr-3"></i>Extraction de Jurisprudence
         </h1>
-        <p class="text-gray-600">Uploadez un fichier ZIP de PDFs de jurisprudence (jusqu'à 300 MB) et extrayez automatiquement toutes les données juridiques structurées</p>
+        <p class="text-gray-600">Uploadez un fichier ZIP de PDFs de jurisprudence (jusqu'à 500 MB) et extrayez automatiquement toutes les données juridiques structurées</p>
     </div>
 
     <div class="bg-white rounded-xl shadow-xl p-8">
@@ -34,7 +34,7 @@ www.myoneart.com
                     class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring focus:ring-amber-200 transition"
                 />
                 <p class="mt-2 text-sm text-gray-500">
-                    <i class="fas fa-info-circle mr-1"></i>Maximum 300 MB. Le fichier ZIP doit contenir uniquement des PDFs de jurisprudence.
+                    <i class="fas fa-info-circle mr-1"></i>Maximum 500 MB. Le fichier ZIP doit contenir uniquement des PDFs de jurisprudence.
                 </p>
             </div>
 
@@ -46,6 +46,17 @@ www.myoneart.com
                 <i class="fas fa-upload mr-2"></i>Uploader et Extraire les données
             </button>
         </form>
+
+        <div id="uploadProgress" class="hidden mt-8">
+            <div class="flex items-center justify-center space-x-3 text-blue-600 mb-4">
+                <i class="fas fa-cloud-upload-alt text-3xl"></i>
+                <span class="text-lg font-semibold">Upload en cours...</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-4 mt-4">
+                <div id="uploadBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p id="uploadPercent" class="text-center text-gray-700 mt-2 font-semibold">0%</p>
+        </div>
 
         <div id="loadingSection" class="hidden mt-8">
             <div class="flex items-center justify-center space-x-3 text-amber-600">
@@ -115,15 +126,14 @@ www.myoneart.com
             <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Lois citées</div>
             <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Résumé français</div>
             <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Résumé arabe</div>
-            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Texte intégral (début)</div>
+            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Texte intégral (début) en arabe</div>
             <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Source de publication</div>
-            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Métadonnées (fichier, pages, longueur)</div>
         </div>
     </div>
 </div>
 
 <script>
-document.getElementById('jurisprudenceForm').addEventListener('submit', async function(e) {
+document.getElementById('jurisprudenceForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
     const fileInput = document.getElementById('zip_file');
@@ -134,52 +144,99 @@ document.getElementById('jurisprudenceForm').addEventListener('submit', async fu
         return;
     }
     
-    if (file.size > 350 * 1024 * 1024) {
-        alert('Le fichier doit faire moins de 350 MB');
+    if (file.size > 500 * 1024 * 1024) {
+        alert('Le fichier doit faire moins de 500 MB');
         return;
     }
     
     const formData = new FormData();
     formData.append('zip_file', file);
     
+    // Disable button and show upload progress
     document.getElementById('submitBtn').disabled = true;
-    document.getElementById('loadingSection').classList.remove('hidden');
+    document.getElementById('uploadProgress').classList.remove('hidden');
+    document.getElementById('loadingSection').classList.add('hidden');
     document.getElementById('resultSection').classList.add('hidden');
     document.getElementById('errorSection').classList.add('hidden');
     
-    try {
-        const response = await fetch('/jurisprudence/process_zip', {
-            method: 'POST',
-            body: formData
-        });
+    // Use XMLHttpRequest to track upload progress
+    const xhr = new XMLHttpRequest();
+    
+    // Upload progress
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
+            document.getElementById('uploadBar').style.width = percentComplete + '%';
+            document.getElementById('uploadPercent').textContent = percentComplete + '%';
+        }
+    });
+    
+    // Request completed
+    xhr.addEventListener('load', function() {
+        document.getElementById('uploadProgress').classList.add('hidden');
         
-        const data = await response.json();
-        
-        if (data.success) {
-            document.getElementById('totalCount').textContent = data.total || 0;
-            document.getElementById('successCount').textContent = data.success_count || 0;
-            document.getElementById('failedCount').textContent = data.failed_count || 0;
-            
-            document.getElementById('downloadExcel').onclick = () => {
-                window.location.href = `/jurisprudence/download/${data.session_id}/excel`;
-            };
-            
-            document.getElementById('downloadCSV').onclick = () => {
-                window.location.href = `/jurisprudence/download/${data.session_id}/csv`;
-            };
-            
-            document.getElementById('resultSection').classList.remove('hidden');
+        if (xhr.status === 200) {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                
+                if (data.success) {
+                    document.getElementById('loadingSection').classList.add('hidden');
+                    document.getElementById('totalCount').textContent = data.total || 0;
+                    document.getElementById('successCount').textContent = data.success_count || 0;
+                    document.getElementById('failedCount').textContent = data.failed_count || 0;
+                    
+                    document.getElementById('downloadExcel').onclick = () => {
+                        window.location.href = `/jurisprudence/download/${data.session_id}/excel`;
+                    };
+                    
+                    document.getElementById('downloadCSV').onclick = () => {
+                        window.location.href = `/jurisprudence/download/${data.session_id}/csv`;
+                    };
+                    
+                    document.getElementById('resultSection').classList.remove('hidden');
+                } else {
+                    document.getElementById('errorMessage').textContent = data.error || 'Une erreur est survenue';
+                    document.getElementById('errorSection').classList.remove('hidden');
+                }
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = 'Erreur de traitement: La réponse du serveur n\'est pas valide. Veuillez réessayer avec un fichier plus petit ou contactez le support.';
+                document.getElementById('errorSection').classList.remove('hidden');
+            }
         } else {
-            document.getElementById('errorMessage').textContent = data.error || 'Une erreur est survenue';
+            document.getElementById('errorMessage').textContent = `Erreur serveur (${xhr.status}): ${xhr.statusText}`;
             document.getElementById('errorSection').classList.remove('hidden');
         }
-    } catch (error) {
-        document.getElementById('errorMessage').textContent = 'Erreur de connexion: ' + error.message;
-        document.getElementById('errorSection').classList.remove('hidden');
-    } finally {
-        document.getElementById('loadingSection').classList.add('hidden');
+        
         document.getElementById('submitBtn').disabled = false;
-    }
+    });
+    
+    // Upload complete, now processing
+    xhr.upload.addEventListener('load', function() {
+        document.getElementById('uploadProgress').classList.add('hidden');
+        document.getElementById('loadingSection').classList.remove('hidden');
+    });
+    
+    // Error handling
+    xhr.addEventListener('error', function() {
+        document.getElementById('uploadProgress').classList.add('hidden');
+        document.getElementById('errorMessage').textContent = 'Erreur de connexion: Impossible de contacter le serveur';
+        document.getElementById('errorSection').classList.remove('hidden');
+        document.getElementById('submitBtn').disabled = false;
+    });
+    
+    // Timeout handling (20 minutes for large files)
+    xhr.timeout = 1200000; // 20 minutes
+    xhr.addEventListener('timeout', function() {
+        document.getElementById('uploadProgress').classList.add('hidden');
+        document.getElementById('loadingSection').classList.add('hidden');
+        document.getElementById('errorMessage').textContent = 'Timeout: Le traitement a pris trop de temps. Veuillez réessayer avec moins de fichiers.';
+        document.getElementById('errorSection').classList.remove('hidden');
+        document.getElementById('submitBtn').disabled = false;
+    });
+    
+    // Send request
+    xhr.open('POST', '/jurisprudence/process_zip', true);
+    xhr.send(formData);
 });
 </script>
 {% endblock %}

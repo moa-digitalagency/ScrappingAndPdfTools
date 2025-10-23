@@ -110,10 +110,8 @@ IMPORTANT: Retourne UNIQUEMENT le JSON, sans texte avant ou après, sans ```json
         
         jurisprudence_data = json.loads(ai_response_clean.strip())
         
-        # Ajouter les métadonnées du fichier
+        # Ajouter le nom du fichier
         jurisprudence_data['fichier'] = filename
-        jurisprudence_data['pages'] = num_pages
-        jurisprudence_data['longueur_texte'] = len(pdf_text)
         
         return jurisprudence_data
         
@@ -137,9 +135,7 @@ IMPORTANT: Retourne UNIQUEMENT le JSON, sans texte avant ou après, sans ```json
             "resume_francais": f"Erreur d'extraction: {str(e)}",
             "resume_arabe": "N/A",
             "texte_integral_debut": "N/A",
-            "source": "N/A",
-            "pages": 0,
-            "longueur_texte": 0
+            "source": "N/A"
         }
 
 def process_single_pdf_jurisprudence(pdf_path, filename, api_key):
@@ -182,8 +178,7 @@ def create_jurisprudence_excel(jurisprudence_list, temp_folder):
         'Fichier', 'Ref', 'Titre', 'Juridiction', 'Pays/Ville', 
         'N° Décision', 'Date Décision', 'N° Dossier', 'Type Décision',
         'Chambre', 'Thème', 'Mots-clés', 'Articles', 'Lois',
-        'Résumé Français', 'Résumé Arabe', 'Extrait Texte', 'Source',
-        'Pages', 'Taille Texte'
+        'Résumé Français', 'Résumé Arabe', 'Extrait Texte Intégral (Arabe)', 'Source'
     ]
     ws.append(headers)
     
@@ -224,9 +219,7 @@ def create_jurisprudence_excel(jurisprudence_list, temp_folder):
             data.get('resume_francais', 'N/A'),
             data.get('resume_arabe', 'N/A'),
             data.get('texte_integral_debut', 'N/A'),
-            data.get('source', 'N/A'),
-            data.get('pages', 0),
-            data.get('longueur_texte', 0)
+            data.get('source', 'N/A')
         ])
     
     # Style des données
@@ -300,9 +293,7 @@ def create_jurisprudence_csv(jurisprudence_list, temp_folder):
                 data.get('resume_francais', 'N/A'),
                 data.get('resume_arabe', 'N/A'),
                 data.get('texte_integral_debut', 'N/A'),
-                data.get('source', 'N/A'),
-                data.get('pages', 0),
-                data.get('longueur_texte', 0)
+                data.get('source', 'N/A')
             ])
     
     logger.info(f"Base de données CSV créée: {csv_filename}")

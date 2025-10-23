@@ -18,7 +18,7 @@ class Config:
     OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
     UPLOAD_FOLDER = os.path.join(os.getcwd(), 'instance', 'uploads')
     TEMP_FOLDER = os.path.join(os.getcwd(), 'tmp')
-    MAX_CONTENT_LENGTH = 350 * 1024 * 1024  # 350 MB max upload size
+    MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500 MB max upload size
     
     @staticmethod
     def init_app(app):
