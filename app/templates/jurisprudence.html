@@ -15,94 +15,226 @@ www.myoneart.com
         <h1 class="text-4xl font-bold text-gray-800 mb-3">
             <i class="fas fa-gavel text-amber-600 mr-3"></i>Extraction de Jurisprudence
         </h1>
-        <p class="text-gray-600">Uploadez un fichier ZIP de PDFs de jurisprudence (jusqu'à 500 MB) et extrayez automatiquement toutes les données juridiques structurées</p>
+        <p class="text-gray-600">Upload par lots de PDFs de jurisprudence et extrayez automatiquement toutes les données juridiques structurées</p>
     </div>
 
-    <div class="bg-white rounded-xl shadow-xl p-8">
-        <form id="jurisprudenceForm" enctype="multipart/form-data">
-            <!-- ZIP Upload -->
-            <div class="mb-6">
-                <label for="zip_file" class="block text-lg font-semibold text-gray-700 mb-3">
-                    <i class="fas fa-file-archive text-amber-600 mr-2"></i>Fichier ZIP contenant les PDFs de jurisprudence
+    <!-- Étape 1: Configuration initiale -->
+    <div id="step1" class="bg-white rounded-xl shadow-xl p-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+            <i class="fas fa-clipboard-list text-amber-600 mr-2"></i>Configuration de l'extraction
+        </h2>
+        
+        <div class="mb-6">
+            <label for="totalPdfs" class="block text-lg font-semibold text-gray-700 mb-3">
+                Combien de PDFs souhaitez-vous analyser au total ?
+            </label>
+            <input 
+                type="number" 
+                id="totalPdfs" 
+                min="1"
+                max="10000"
+                placeholder="Ex: 100"
+                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring focus:ring-amber-200 transition text-lg"
+            />
+            <p class="mt-2 text-sm text-gray-500">
+                <i class="fas fa-info-circle mr-1"></i>Vous pourrez uploader vos PDFs par lots jusqu'à atteindre ce nombre
+            </p>
+        </div>
+
+        <div class="mb-6">
+            <label for="sessionName" class="block text-lg font-semibold text-gray-700 mb-3">
+                Nom de la session (optionnel)
+            </label>
+            <input 
+                type="text" 
+                id="sessionName" 
+                placeholder="Ex: Jurisprudence Mars 2024"
+                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring focus:ring-amber-200 transition"
+            />
+            <p class="mt-2 text-sm text-gray-500">
+                <i class="fas fa-info-circle mr-1"></i>Un nom pour retrouver facilement votre session
+            </p>
+        </div>
+
+        <button 
+            id="startBtn"
+            class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
+        >
+            <i class="fas fa-play mr-2"></i>Démarrer la session
+        </button>
+
+        <div class="mt-6 pt-6 border-t border-gray-200">
+            <h3 class="font-bold text-gray-700 mb-3">
+                <i class="fas fa-history text-blue-600 mr-2"></i>Reprendre une session existante
+            </h3>
+            <div class="flex gap-3">
+                <input 
+                    type="text" 
+                    id="existingSessionId" 
+                    placeholder="ID de session"
+                    class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring focus:ring-blue-200 transition"
+                />
+                <button 
+                    id="resumeBtn"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition"
+                >
+                    <i class="fas fa-redo mr-2"></i>Reprendre
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Étape 2: Upload progressif -->
+    <div id="step2" class="hidden bg-white rounded-xl shadow-xl p-8 mt-8">
+        <div class="mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-upload text-amber-600 mr-2"></i>Upload des PDFs
+                </h2>
+                <div class="text-right">
+                    <p class="text-sm text-gray-600">ID Session:</p>
+                    <p class="font-mono text-xs text-blue-600" id="sessionIdDisplay"></p>
+                </div>
+            </div>
+            
+            <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-lg font-bold text-gray-800">
+                            <span id="currentCount">0</span> / <span id="targetCount">0</span> PDFs uploadés
+                        </p>
+                        <p class="text-sm text-gray-600 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>Nom: <span id="sessionNameDisplay" class="font-semibold"></span>
+                        </p>
+                    </div>
+                    <div class="text-4xl font-bold text-amber-600">
+                        <span id="progressPercent">0</span>%
+                    </div>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-4 mt-4">
+                    <div id="progressBar" class="bg-amber-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <form id="uploadForm" enctype="multipart/form-data" class="mb-6">
+            <div class="mb-4">
+                <label for="pdf_files" class="block text-lg font-semibold text-gray-700 mb-3">
+                    <i class="fas fa-file-pdf text-red-600 mr-2"></i>Sélectionner des PDFs à uploader
                 </label>
                 <input 
                     type="file" 
-                    id="zip_file" 
-                    name="zip_file"
-                    accept=".zip"
-                    required
+                    id="pdf_files" 
+                    name="pdf_files"
+                    accept=".pdf"
+                    multiple
                     class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring focus:ring-amber-200 transition"
                 />
                 <p class="mt-2 text-sm text-gray-500">
-                    <i class="fas fa-info-circle mr-1"></i>Maximum 500 MB. Le fichier ZIP doit contenir uniquement des PDFs de jurisprudence.
+                    <i class="fas fa-info-circle mr-1"></i>Sélectionnez un ou plusieurs PDFs (les fichiers seront uploadés un par un)
                 </p>
             </div>
 
             <button 
                 type="submit" 
-                id="submitBtn"
-                class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
+                id="uploadBtn"
+                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
             >
-                <i class="fas fa-upload mr-2"></i>Uploader et Extraire les données
+                <i class="fas fa-cloud-upload-alt mr-2"></i>Ajouter ces PDFs
             </button>
         </form>
 
-        <div id="uploadProgress" class="hidden mt-8">
-            <div class="flex items-center justify-center space-x-3 text-blue-600 mb-4">
-                <i class="fas fa-cloud-upload-alt text-3xl"></i>
-                <span class="text-lg font-semibold">Upload en cours...</span>
+        <div id="uploadStatus" class="hidden mb-6">
+            <div class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+                <p class="text-yellow-800 font-semibold">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Upload en cours: <span id="currentFile"></span>
+                </p>
+                <p class="text-sm text-yellow-700 mt-2">
+                    Fichier <span id="fileProgress">0</span> sur <span id="filesTotalProgress">0</span>
+                </p>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-4 mt-4">
-                <div id="uploadBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
-            </div>
-            <p id="uploadPercent" class="text-center text-gray-700 mt-2 font-semibold">0%</p>
         </div>
 
-        <div id="loadingSection" class="hidden mt-8">
-            <div class="flex items-center justify-center space-x-3 text-amber-600">
-                <i class="fas fa-spinner fa-spin text-3xl"></i>
-                <span class="text-lg font-semibold">Extraction des données en cours...</span>
+        <div class="flex gap-4">
+            <button 
+                id="finishBtn"
+                class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-6 rounded-lg transition transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled
+            >
+                <i class="fas fa-check-double mr-2"></i>Terminer et lancer l'analyse
+            </button>
+            <button 
+                id="cancelBtn"
+                class="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-lg transition"
+            >
+                <i class="fas fa-times mr-2"></i>Annuler
+            </button>
+        </div>
+    </div>
+
+    <!-- Étape 3: Analyse en cours -->
+    <div id="step3" class="hidden bg-white rounded-xl shadow-xl p-8 mt-8">
+        <div class="text-center">
+            <div class="text-6xl text-amber-600 mb-4">
+                <i class="fas fa-spinner fa-spin"></i>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-3 mt-4">
+            <h2 class="text-2xl font-bold text-gray-800 mb-3">Analyse en cours...</h2>
+            <p class="text-gray-600 mb-6">L'analyse des <span id="analyzeCount">0</span> PDFs peut prendre plusieurs minutes. Veuillez patienter...</p>
+            <div class="w-full bg-gray-200 rounded-full h-3">
                 <div class="bg-amber-600 h-3 rounded-full animate-pulse" style="width: 100%"></div>
             </div>
-            <p class="text-center text-gray-600 mt-4">
-                <i class="fas fa-info-circle mr-1"></i>L'extraction peut prendre plusieurs minutes selon le nombre de PDFs. Veuillez patienter...
-            </p>
         </div>
+    </div>
 
-        <div id="resultSection" class="hidden mt-8 p-6 bg-green-50 border-2 border-green-300 rounded-lg">
-            <h3 class="text-xl font-bold text-green-800 mb-4 flex items-center">
-                <i class="fas fa-check-circle text-green-600 mr-2"></i>Extraction terminée !
-            </h3>
-            <div class="space-y-2 mb-6 text-gray-700">
+    <!-- Étape 4: Résultats -->
+    <div id="step4" class="hidden bg-white rounded-xl shadow-xl p-8 mt-8">
+        <h2 class="text-2xl font-bold text-green-800 mb-6 flex items-center">
+            <i class="fas fa-check-circle text-green-600 mr-3 text-3xl"></i>Extraction terminée !
+        </h2>
+        
+        <div class="bg-green-50 border-2 border-green-300 rounded-lg p-6 mb-6">
+            <div class="space-y-2 text-gray-700">
                 <p><i class="fas fa-file-pdf mr-2 text-gray-600"></i><strong>Total de documents:</strong> <span id="totalCount">0</span></p>
                 <p><i class="fas fa-check mr-2 text-green-600"></i><strong>Traités avec succès:</strong> <span id="successCount">0</span></p>
                 <p><i class="fas fa-times mr-2 text-red-600"></i><strong>Échecs:</strong> <span id="failedCount">0</span></p>
             </div>
-            
-            <div class="grid grid-cols-2 gap-4">
-                <button 
-                    id="downloadExcel" 
-                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
-                >
-                    <i class="fas fa-file-excel mr-2"></i>Télécharger Excel
-                </button>
-                <button 
-                    id="downloadCSV" 
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
-                >
-                    <i class="fas fa-file-csv mr-2"></i>Télécharger CSV
-                </button>
-            </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <button 
+                id="downloadExcel" 
+                class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
+            >
+                <i class="fas fa-file-excel mr-2"></i>Télécharger Excel
+            </button>
+            <button 
+                id="downloadCSV" 
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
+            >
+                <i class="fas fa-file-csv mr-2"></i>Télécharger CSV
+            </button>
         </div>
 
-        <div id="errorSection" class="hidden mt-8 p-6 bg-red-50 border-2 border-red-300 rounded-lg">
-            <h3 class="text-xl font-bold text-red-800 mb-3 flex items-center">
-                <i class="fas fa-exclamation-triangle text-red-600 mr-2"></i>Erreur
-            </h3>
-            <p class="text-red-700" id="errorMessage"></p>
-        </div>
+        <button 
+            id="newSessionBtn"
+            class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition"
+        >
+            <i class="fas fa-plus mr-2"></i>Nouvelle session
+        </button>
+    </div>
+
+    <!-- Section d'erreur -->
+    <div id="errorSection" class="hidden bg-white rounded-xl shadow-xl p-8 mt-8">
+        <h3 class="text-xl font-bold text-red-800 mb-3 flex items-center">
+            <i class="fas fa-exclamation-triangle text-red-600 mr-2"></i>Erreur
+        </h3>
+        <p class="text-red-700 mb-4" id="errorMessage"></p>
+        <button 
+            id="retryBtn"
+            class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition"
+        >
+            <i class="fas fa-redo mr-2"></i>Réessayer
+        </button>
     </div>
 
     <!-- Info Section -->
@@ -132,111 +264,5 @@ www.myoneart.com
     </div>
 </div>
 
-<script>
-document.getElementById('jurisprudenceForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const fileInput = document.getElementById('zip_file');
-    const file = fileInput.files[0];
-    
-    if (!file) {
-        alert('Veuillez sélectionner un fichier ZIP');
-        return;
-    }
-    
-    if (file.size > 500 * 1024 * 1024) {
-        alert('Le fichier doit faire moins de 500 MB');
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('zip_file', file);
-    
-    // Disable button and show upload progress
-    document.getElementById('submitBtn').disabled = true;
-    document.getElementById('uploadProgress').classList.remove('hidden');
-    document.getElementById('loadingSection').classList.add('hidden');
-    document.getElementById('resultSection').classList.add('hidden');
-    document.getElementById('errorSection').classList.add('hidden');
-    
-    // Use XMLHttpRequest to track upload progress
-    const xhr = new XMLHttpRequest();
-    
-    // Upload progress
-    xhr.upload.addEventListener('progress', function(e) {
-        if (e.lengthComputable) {
-            const percentComplete = Math.round((e.loaded / e.total) * 100);
-            document.getElementById('uploadBar').style.width = percentComplete + '%';
-            document.getElementById('uploadPercent').textContent = percentComplete + '%';
-        }
-    });
-    
-    // Request completed
-    xhr.addEventListener('load', function() {
-        document.getElementById('uploadProgress').classList.add('hidden');
-        
-        if (xhr.status === 200) {
-            try {
-                const data = JSON.parse(xhr.responseText);
-                
-                if (data.success) {
-                    document.getElementById('loadingSection').classList.add('hidden');
-                    document.getElementById('totalCount').textContent = data.total || 0;
-                    document.getElementById('successCount').textContent = data.success_count || 0;
-                    document.getElementById('failedCount').textContent = data.failed_count || 0;
-                    
-                    document.getElementById('downloadExcel').onclick = () => {
-                        window.location.href = `/jurisprudence/download/${data.session_id}/excel`;
-                    };
-                    
-                    document.getElementById('downloadCSV').onclick = () => {
-                        window.location.href = `/jurisprudence/download/${data.session_id}/csv`;
-                    };
-                    
-                    document.getElementById('resultSection').classList.remove('hidden');
-                } else {
-                    document.getElementById('errorMessage').textContent = data.error || 'Une erreur est survenue';
-                    document.getElementById('errorSection').classList.remove('hidden');
-                }
-            } catch (error) {
-                document.getElementById('errorMessage').textContent = 'Erreur de traitement: La réponse du serveur n\'est pas valide. Veuillez réessayer avec un fichier plus petit ou contactez le support.';
-                document.getElementById('errorSection').classList.remove('hidden');
-            }
-        } else {
-            document.getElementById('errorMessage').textContent = `Erreur serveur (${xhr.status}): ${xhr.statusText}`;
-            document.getElementById('errorSection').classList.remove('hidden');
-        }
-        
-        document.getElementById('submitBtn').disabled = false;
-    });
-    
-    // Upload complete, now processing
-    xhr.upload.addEventListener('load', function() {
-        document.getElementById('uploadProgress').classList.add('hidden');
-        document.getElementById('loadingSection').classList.remove('hidden');
-    });
-    
-    // Error handling
-    xhr.addEventListener('error', function() {
-        document.getElementById('uploadProgress').classList.add('hidden');
-        document.getElementById('errorMessage').textContent = 'Erreur de connexion: Impossible de contacter le serveur';
-        document.getElementById('errorSection').classList.remove('hidden');
-        document.getElementById('submitBtn').disabled = false;
-    });
-    
-    // Timeout handling (20 minutes for large files)
-    xhr.timeout = 1200000; // 20 minutes
-    xhr.addEventListener('timeout', function() {
-        document.getElementById('uploadProgress').classList.add('hidden');
-        document.getElementById('loadingSection').classList.add('hidden');
-        document.getElementById('errorMessage').textContent = 'Timeout: Le traitement a pris trop de temps. Veuillez réessayer avec moins de fichiers.';
-        document.getElementById('errorSection').classList.remove('hidden');
-        document.getElementById('submitBtn').disabled = false;
-    });
-    
-    // Send request
-    xhr.open('POST', '/jurisprudence/process_zip', true);
-    xhr.send(formData);
-});
-</script>
+<script src="{{ url_for('static', filename='js/jurisprudence-batch.js') }}"></script>
 {% endblock %}
