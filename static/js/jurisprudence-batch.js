@@ -17,7 +17,7 @@ document.getElementById('startBtn').addEventListener('click', async function() {
     }
     
     try {
-        const response = await fetch('/jurisprudence/create_session', {
+        const response = await fetch(API_URLS.createSession, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -42,6 +42,7 @@ document.getElementById('startBtn').addEventListener('click', async function() {
             showError(data.error || 'Erreur lors de la création de la session');
         }
     } catch (error) {
+        console.error('Erreur détaillée:', error);
         showError('Erreur de connexion: ' + error.message);
     }
 });
@@ -56,7 +57,7 @@ document.getElementById('resumeBtn').addEventListener('click', async function() 
     }
     
     try {
-        const response = await fetch(`/jurisprudence/get_session/${sessionId}`);
+        const response = await fetch(API_URLS.getSession + sessionId);
         const data = await response.json();
         
         if (data.success) {
@@ -73,6 +74,7 @@ document.getElementById('resumeBtn').addEventListener('click', async function() 
             showError(data.error || 'Session non trouvée');
         }
     } catch (error) {
+        console.error('Erreur détaillée:', error);
         showError('Erreur de connexion: ' + error.message);
     }
 });
@@ -112,7 +114,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         formData.append('session_id', currentSession.id);
         
         try {
-            const response = await fetch('/jurisprudence/add_pdf', {
+            const response = await fetch(API_URLS.addPdf, {
                 method: 'POST',
                 body: formData
             });
@@ -153,7 +155,7 @@ document.getElementById('finishBtn').addEventListener('click', async function() 
     try {
         document.getElementById('analyzeCount').textContent = currentSession.currentCount;
         
-        const response = await fetch('/jurisprudence/analyze_session', {
+        const response = await fetch(API_URLS.analyzeSession, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({session_id: currentSession.id})
@@ -167,6 +169,7 @@ document.getElementById('finishBtn').addEventListener('click', async function() 
             showError(data.error || 'Erreur lors de l\'analyse');
         }
     } catch (error) {
+        console.error('Erreur détaillée:', error);
         showError('Erreur de connexion: ' + error.message);
     }
 });
@@ -227,11 +230,11 @@ function showStep4(data) {
     document.getElementById('failedCount').textContent = data.failed_count || 0;
     
     document.getElementById('downloadExcel').onclick = () => {
-        window.location.href = `/jurisprudence/download/${data.session_id}/excel`;
+        window.location.href = API_URLS.download + data.session_id + '/excel';
     };
     
     document.getElementById('downloadCSV').onclick = () => {
-        window.location.href = `/jurisprudence/download/${data.session_id}/csv`;
+        window.location.href = API_URLS.download + data.session_id + '/csv';
     };
 }
 

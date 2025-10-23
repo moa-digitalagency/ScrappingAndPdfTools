@@ -264,5 +264,15 @@ www.myoneart.com
     </div>
 </div>
 
+<script>
+// Configuration des URLs pour compatibilité VPS
+const API_URLS = {
+    createSession: "{{ url_for('jurisprudence.create_session') }}",
+    getSession: "{{ url_for('jurisprudence.get_session', session_id='SESSION_ID') }}".replace('SESSION_ID', ''),
+    addPdf: "{{ url_for('jurisprudence.add_pdf') }}",
+    analyzeSession: "{{ url_for('jurisprudence.analyze_session') }}",
+    download: "{{ url_for('jurisprudence.download', session_id='SESSION_ID', format='FORMAT') }}".replace('SESSION_ID', '').replace('FORMAT', '')
+};
+</script>
 <script src="{{ url_for('static', filename='js/jurisprudence-batch.js') }}"></script>
 {% endblock %}
