@@ -76,7 +76,7 @@ echo "   Port: 5000"
 echo "   Workers: 4"
 
 # Lancer gunicorn en arrière-plan
-nohup venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 120 --reuse-port main:app > gunicorn.log 2>&1 &
+nohup venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 600 --graceful-timeout 600 --limit-request-line 0 --limit-request-field_size 0 --reuse-port main:app > gunicorn.log 2>&1 &
 
 # Attendre que l'application démarre
 sleep 3

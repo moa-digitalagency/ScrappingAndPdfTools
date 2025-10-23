@@ -62,7 +62,7 @@ Type=notify
 User=votre_user
 WorkingDirectory=/chemin/vers/votre/projet
 Environment="PATH=/chemin/vers/votre/projet/venv/bin"
-ExecStart=/chemin/vers/votre/projet/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 120 main:app
+ExecStart=/chemin/vers/votre/projet/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 600 --graceful-timeout 600 --limit-request-line 0 --limit-request-field_size 0 main:app
 Restart=always
 
 [Install]
@@ -94,7 +94,7 @@ module.exports = {
   apps: [{
     name: 'pdftools',
     script: 'venv/bin/gunicorn',
-    args: '--bind 0.0.0.0:5000 --workers 4 --timeout 120 main:app',
+    args: '--bind 0.0.0.0:5000 --workers 4 --timeout 600 --graceful-timeout 600 --limit-request-line 0 --limit-request-field_size 0 main:app',
     cwd: '/chemin/vers/votre/projet',
     env: {
       'PATH': '/chemin/vers/votre/projet/venv/bin:' + process.env.PATH
@@ -125,7 +125,13 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 100M;
+        
+        # Support pour fichiers jusqu'à 500 MB
+        client_max_body_size 500M;
+        client_body_timeout 600s;
+        proxy_read_timeout 600s;
+        proxy_connect_timeout 600s;
+        proxy_send_timeout 600s;
     }
 }
 ```
