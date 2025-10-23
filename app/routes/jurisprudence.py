@@ -63,7 +63,7 @@ def create_session():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/get_session/<session_id>', methods=['GET'])
-def get_session_route(session_id):
+def get_session(session_id):
     try:
         session = get_upload_session(session_id)
         
