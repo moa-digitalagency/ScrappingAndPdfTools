@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script de déploiement pour VPS - Version Sécurisée
+# Script de déploiement pour VPS
 # Usage: ./deploy_vps.sh
 
 set -e
@@ -23,66 +23,38 @@ source venv/bin/activate
 echo "📦 Installation des dépendances..."
 pip install -r requirements.txt
 
-# 4. Gestion du fichier .env
+# 4. Création du fichier .env s'il n'existe pas
 if [ ! -f .env ]; then
     echo "📝 Création du fichier .env..."
     cat > .env << 'EOF'
 # Flask Configuration
-SESSION_SECRET=CHANGEZ_MOI_EN_PRODUCTION
+SESSION_SECRET=your_secret_key_here_change_this_in_production
 
 # OpenRouter API Configuration
-OPENROUTER_API_KEY=VOTRE_CLE_API_ICI
+OPENROUTER_API_KEY=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
 
 # Database Configuration (si nécessaire)
 # DATABASE_URL=postgresql://user:password@localhost/dbname
 EOF
-    echo "⚠️  IMPORTANT: Fichier .env créé. Vous DEVEZ modifier les valeurs:"
-    echo "   1. Ajoutez votre clé OpenRouter API"
-    echo "   2. Générez une nouvelle SESSION_SECRET"
-    echo ""
-    echo "   Pour éditer: nano .env"
+    echo "✅ Fichier .env créé"
 else
-    echo "✅ Le fichier .env existe déjà"
-    
-    # Vérification de la présence de OPENROUTER_API_KEY
-    if ! grep -q "^OPENROUTER_API_KEY=" .env; then
-        echo "➕ Ajout de OPENROUTER_API_KEY dans .env..."
-        echo "" >> .env
-        echo "# OpenRouter API Configuration" >> .env
-        echo "OPENROUTER_API_KEY=VOTRE_CLE_API_ICI" >> .env
-        echo "⚠️  IMPORTANT: Ajoutez votre clé OpenRouter dans .env"
+    echo "ℹ️  Le fichier .env existe déjà, mise à jour de l'API key..."
+    # Mise à jour de l'API key si le fichier existe
+    if grep -q "OPENROUTER_API_KEY" .env; then
+        sed -i 's/^OPENROUTER_API_KEY=.*/OPENROUTER_API_KEY=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/' .env
     else
-        # Vérifier si la clé n'est pas la valeur par défaut
-        if grep -q "^OPENROUTER_API_KEY=VOTRE_CLE_API_ICI" .env; then
-            echo "⚠️  WARNING: La clé OpenRouter API n'est pas configurée!"
-            echo "   Éditez le fichier .env et remplacez VOTRE_CLE_API_ICI"
-        else
-            echo "✅ OPENROUTER_API_KEY est configurée"
-        fi
+        echo "OPENROUTER_API_KEY=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" >> .env
     fi
 fi
 
-# 5. Génération d'une SESSION_SECRET sécurisée si nécessaire
-if grep -q "SESSION_SECRET=CHANGEZ_MOI_EN_PRODUCTION" .env 2>/dev/null; then
+# 5. Génération d'une nouvelle clé secrète si nécessaire
+if grep -q "your_secret_key_here_change_this_in_production" .env; then
     echo "🔐 Génération d'une nouvelle clé secrète..."
     NEW_SECRET=$(python3 -c 'import secrets; print(secrets.token_hex(32))')
-    sed -i "s/SESSION_SECRET=CHANGEZ_MOI_EN_PRODUCTION/SESSION_SECRET=$NEW_SECRET/" .env
-    echo "✅ SESSION_SECRET générée automatiquement"
+    sed -i "s/your_secret_key_here_change_this_in_production/$NEW_SECRET/" .env
 fi
 
-# 6. Vérification finale
-echo ""
-echo "🔍 Vérification de la configuration..."
-if grep -q "VOTRE_CLE_API_ICI" .env; then
-    echo "❌ ERREUR: Vous devez configurer votre clé OpenRouter API!"
-    echo "   Éditez .env et remplacez VOTRE_CLE_API_ICI par votre vraie clé"
-    echo ""
-    echo "   Pour obtenir une clé: https://openrouter.ai/"
-    exit 1
-fi
-
-# 7. Redémarrage du service
-echo ""
+# 6. Redémarrage du service
 echo "🔄 Redémarrage du service..."
 
 # Option 1: Si vous utilisez systemd
@@ -102,8 +74,3 @@ nohup gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 120 --reuse-port main:a
 echo ""
 echo "✅ Déploiement terminé avec succès!"
 echo "📊 Vérifiez les logs avec: tail -f gunicorn.log"
-echo ""
-echo "💡 Conseils de sécurité:"
-echo "   - Ne commitez JAMAIS le fichier .env dans Git"
-echo "   - Ajoutez .env dans .gitignore"
-echo "   - Gardez vos clés API secrètes"
