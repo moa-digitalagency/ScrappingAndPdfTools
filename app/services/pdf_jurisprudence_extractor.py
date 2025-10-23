@@ -77,7 +77,7 @@ Retourne UN SEUL objet JSON avec cette structure EXACTE (utilise "N/A" si l'info
 IMPORTANT: Retourne UNIQUEMENT le JSON, sans texte avant ou après, sans ```json```, juste l'objet JSON pur."""
 
         data = {
-            "model": "meta-llama/llama-3.1-8b-instruct:free",
+            "model": "openai/gpt-4o",
             "messages": [
                 {
                     "role": "user",
