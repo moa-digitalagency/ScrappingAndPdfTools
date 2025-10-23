@@ -10,7 +10,7 @@ from flask import Blueprint, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import json
-from app.services.pdf_text_extractor import PdfTextExtractor
+from app.services.pdf_jurisprudence_extractor_rule_based import JurisprudenceExtractor
 from app.models import (
     add_library_pdf, 
     get_library_pdfs, 
@@ -197,137 +197,9 @@ def delete_pdf(pdf_id):
             'error': str(e)
         }), 500
 
-@bp.route('/api/extract-text', methods=['POST'])
-def extract_text():
-    """Extraire le texte d'un ou plusieurs PDFs"""
-    try:
-        data = request.get_json()
-        pdf_ids = data.get('pdf_ids', [])
-        
-        if not pdf_ids:
-            return jsonify({
-                'success': False,
-                'error': 'Aucun PDF sélectionné'
-            }), 400
-        
-        results = []
-        
-        for pdf_id in pdf_ids:
-            pdf = get_library_pdf_by_id(pdf_id)
-            if not pdf:
-                results.append({
-                    'id': pdf_id,
-                    'success': False,
-                    'error': 'PDF non trouvé'
-                })
-                continue
-            
-            # Extraire le texte
-            extraction_result = PdfTextExtractor.extract_text_from_pdf(pdf['file_path'])
-            extraction_result['id'] = pdf_id
-            extraction_result['name'] = pdf['original_name']
-            
-            results.append(extraction_result)
-        
-        add_log('library', f"Extraction de texte de {len(pdf_ids)} PDFs")
-        
-        return jsonify({
-            'success': True,
-            'results': results
-        })
-        
-    except Exception as e:
-        logger.error(f"Erreur lors de l'extraction: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@bp.route('/api/extract-text-all', methods=['POST'])
-def extract_text_all():
-    """Extraire le texte de tous les PDFs et sauvegarder dans un fichier"""
-    try:
-        pdfs = get_library_pdfs()
-        
-        if not pdfs:
-            return jsonify({
-                'success': False,
-                'error': 'Aucun PDF dans la bibliothèque'
-            }), 400
-        
-        # Sauvegarder dans un fichier en streaming pour éviter les problèmes de mémoire
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        output_filename = f"extraction_complete_{timestamp}.txt"
-        output_path = os.path.join(EXTRACTED_TEXTS_FOLDER, output_filename)
-        
-        os.makedirs(EXTRACTED_TEXTS_FOLDER, exist_ok=True)
-        
-        successful = 0
-        failed = 0
-        text_preview = ""
-        
-        with open(output_path, 'w', encoding='utf-8') as output_file:
-            for pdf in pdfs:
-                result = PdfTextExtractor.extract_text_from_pdf(pdf['file_path'])
-                if result['success']:
-                    # Vérifier si du texte a été extrait
-                    if result.get('total_chars', 0) > 0:
-                        header = f"\n\n{'='*80}\nFICHIER: {pdf['original_name']}\n{'='*80}\n\n"
-                        output_file.write(header)
-                        output_file.write(result['text'])
-                        
-                        # Capturer un aperçu du début
-                        if successful == 0 and len(text_preview) < 500:
-                            text_preview = (header + result['text'])[:500]
-                        
-                        successful += 1
-                    else:
-                        # PDF sans texte extractible (probablement images uniquement)
-                        failed += 1
-                        logger.warning(f"Aucun texte extractible pour {pdf['original_name']}")
-                else:
-                    failed += 1
-                    logger.warning(f"Échec de l'extraction pour {pdf['original_name']}: {result.get('error', 'Unknown error')}")
-        
-        # Vérifier si au moins un PDF a produit du texte
-        if successful == 0:
-            # Supprimer le fichier vide
-            if os.path.exists(output_path):
-                os.remove(output_path)
-            
-            add_log('library', f"Extraction complète échouée - Aucun texte extractible", 
-                    details=f"Total: {len(pdfs)}, Tous ont échoué", status='error')
-            
-            return jsonify({
-                'success': False,
-                'error': 'Aucun texte n\'a pu être extrait des PDFs. Ils contiennent peut-être uniquement des images.',
-                'total': len(pdfs),
-                'successful': 0,
-                'failed': failed
-            }), 400
-        
-        add_log('library', f"Extraction complète de {successful} PDFs", 
-                details=f"Fichier: {output_filename}")
-        
-        return jsonify({
-            'success': True,
-            'total': len(pdfs),
-            'successful': successful,
-            'failed': failed,
-            'output_file': output_filename,
-            'text_preview': text_preview + '...' if len(text_preview) >= 500 else text_preview
-        })
-        
-    except Exception as e:
-        logger.error(f"Erreur lors de l'extraction complète: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
 @bp.route('/api/extract-export-excel', methods=['POST'])
 def extract_export_excel():
-    """Extraire le texte et exporter en Excel"""
+    """Extraire les données de jurisprudence et exporter en Excel"""
     try:
         data = request.get_json()
         pdf_ids = data.get('pdf_ids', [])
@@ -338,34 +210,41 @@ def extract_export_excel():
                 'error': 'Aucun PDF sélectionné'
             }), 400
         
-        # Extraire le texte de tous les PDFs sélectionnés
-        results = []
+        # Extraire les données de jurisprudence de tous les PDFs sélectionnés
+        jurisprudence_list = []
         for pdf_id in pdf_ids:
             pdf = get_library_pdf_by_id(pdf_id)
             if not pdf:
                 continue
             
-            result = PdfTextExtractor.extract_text_from_pdf(pdf['file_path'])
-            result['file_name'] = pdf['original_name']
-            results.append(result)
+            # Extraire le texte du PDF
+            pdf_text = JurisprudenceExtractor.extract_text_from_pdf(pdf['file_path'])
+            if pdf_text:
+                # Extraire les données structurées
+                jurisprudence_data = JurisprudenceExtractor.extract_jurisprudence_data(pdf_text, pdf['original_name'])
+                # Format attendu par create_excel: liste de dicts avec clé 'data'
+                jurisprudence_list.append({
+                    'success': True,
+                    'filename': pdf['original_name'],
+                    'data': jurisprudence_data
+                })
         
-        # Exporter en Excel
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        excel_filename = f"extraction_excel_{timestamp}.xlsx"
-        excel_path = os.path.join(EXTRACTED_TEXTS_FOLDER, excel_filename)
-        
-        if PdfTextExtractor.export_to_excel(results, excel_path):
-            add_log('library', f"Export Excel de {len(pdf_ids)} PDFs", details=excel_filename)
-            return jsonify({
-                'success': True,
-                'filename': excel_filename,
-                'total': len(results)
-            })
-        else:
+        if not jurisprudence_list:
             return jsonify({
                 'success': False,
-                'error': 'Erreur lors de l\'export Excel'
-            }), 500
+                'error': 'Aucune donnée extraite'
+            }), 400
+        
+        # Créer le fichier Excel
+        os.makedirs(EXTRACTED_TEXTS_FOLDER, exist_ok=True)
+        excel_path, excel_filename = JurisprudenceExtractor.create_excel(jurisprudence_list, EXTRACTED_TEXTS_FOLDER)
+        
+        add_log('library', f"Export Excel de {len(pdf_ids)} PDFs", details=excel_filename)
+        return jsonify({
+            'success': True,
+            'filename': excel_filename,
+            'total': len(jurisprudence_list)
+        })
             
     except Exception as e:
         logger.error(f"Erreur lors de l'export Excel: {e}")
@@ -376,7 +255,7 @@ def extract_export_excel():
 
 @bp.route('/api/extract-export-csv', methods=['POST'])
 def extract_export_csv():
-    """Extraire le texte et exporter en CSV"""
+    """Extraire les données de jurisprudence et exporter en CSV"""
     try:
         data = request.get_json()
         pdf_ids = data.get('pdf_ids', [])
@@ -387,34 +266,41 @@ def extract_export_csv():
                 'error': 'Aucun PDF sélectionné'
             }), 400
         
-        # Extraire le texte de tous les PDFs sélectionnés
-        results = []
+        # Extraire les données de jurisprudence de tous les PDFs sélectionnés
+        jurisprudence_list = []
         for pdf_id in pdf_ids:
             pdf = get_library_pdf_by_id(pdf_id)
             if not pdf:
                 continue
             
-            result = PdfTextExtractor.extract_text_from_pdf(pdf['file_path'])
-            result['file_name'] = pdf['original_name']
-            results.append(result)
+            # Extraire le texte du PDF
+            pdf_text = JurisprudenceExtractor.extract_text_from_pdf(pdf['file_path'])
+            if pdf_text:
+                # Extraire les données structurées
+                jurisprudence_data = JurisprudenceExtractor.extract_jurisprudence_data(pdf_text, pdf['original_name'])
+                # Format attendu par create_csv: liste de dicts avec clé 'data'
+                jurisprudence_list.append({
+                    'success': True,
+                    'filename': pdf['original_name'],
+                    'data': jurisprudence_data
+                })
         
-        # Exporter en CSV
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        csv_filename = f"extraction_csv_{timestamp}.csv"
-        csv_path = os.path.join(EXTRACTED_TEXTS_FOLDER, csv_filename)
-        
-        if PdfTextExtractor.export_to_csv(results, csv_path):
-            add_log('library', f"Export CSV de {len(pdf_ids)} PDFs", details=csv_filename)
-            return jsonify({
-                'success': True,
-                'filename': csv_filename,
-                'total': len(results)
-            })
-        else:
+        if not jurisprudence_list:
             return jsonify({
                 'success': False,
-                'error': 'Erreur lors de l\'export CSV'
-            }), 500
+                'error': 'Aucune donnée extraite'
+            }), 400
+        
+        # Créer le fichier CSV
+        os.makedirs(EXTRACTED_TEXTS_FOLDER, exist_ok=True)
+        csv_path, csv_filename = JurisprudenceExtractor.create_csv(jurisprudence_list, EXTRACTED_TEXTS_FOLDER)
+        
+        add_log('library', f"Export CSV de {len(pdf_ids)} PDFs", details=csv_filename)
+        return jsonify({
+            'success': True,
+            'filename': csv_filename,
+            'total': len(jurisprudence_list)
+        })
             
     except Exception as e:
         logger.error(f"Erreur lors de l'export CSV: {e}")
