@@ -1,224 +1,35 @@
 # Application de Traitement de PDFs
 
-## Vue d'ensemble
-Application web Flask professionnelle pour le traitement avancé de fichiers PDF avec analyse intelligente par IA :
-1. **Téléchargement Massif & ZIP** : Téléchargement de PDFs depuis des URLs (10,000+ documents) avec compression en ZIP
-2. **Fusion de PDFs** : Fusion de PDFs depuis un ZIP avec génération de métadonnées Excel
-3. **Analyse Intelligente par IA** (NOUVEAU) : Extraction automatique de données de PDFs avec OpenRouter et génération de base de données Excel structurée
+## Overview
+This project is a professional Flask web application designed for advanced PDF processing, featuring intelligent AI-powered analysis. Its core capabilities include massive PDF downloading and ZIP compression, merging multiple PDFs from a ZIP archive with Excel metadata generation, and intelligent data extraction from PDFs using AI, leading to structured Excel databases. A key recent addition is the automatic extraction of legal data (jurisprudence) from legal documents, including references, jurisdictions, dates, keywords, and legal bases, with export options to Excel/CSV. The application aims to provide robust, scalable, and intelligent PDF handling for various business needs.
 
-## Créé le
-15 octobre 2025
-
-## Architecture
-- **Backend**: Flask avec blueprints modulaires
-- **Frontend**: HTML/CSS avec Tailwind CSS (CDN)
-- **Bibliothèques PDF**: pypdf pour la manipulation de PDFs
-- **Bibliothèque Excel**: openpyxl pour la génération de fichiers Excel
-- **Téléchargement**: requests avec ThreadPoolExecutor pour téléchargement parallèle
-- **IA**: OpenRouter API (Llama 3.1) pour analyse intelligente des PDFs
-
-## Structure du Projet
-```
-/app                    # Package d'application Flask
-  /__init__.py         # Flask factory avec StreamingRequest
-  /routes/             # Blueprints pour les routes
-    /downloader.py     # Route téléchargement & ZIP
-    /merger.py         # Route fusion de PDFs
-    /analyzer.py       # Route analyse intelligente (NOUVEAU)
-  /services/           # Logique de traitement PDF
-    /pdf_downloader.py # Téléchargement parallèle avec batching
-    /pdf_merger.py     # Fusion de PDFs
-    /pdf_intelligent_analyzer.py # Analyse intelligente avec IA (NOUVEAU)
-  /utils/              # Utilitaires (gestion du stockage)
-  /templates/          # Templates HTML
-    /index.html        # Page d'accueil avec 3 cartes
-    /downloader.html   # Interface téléchargement
-    /merger.html       # Interface fusion
-    /analyzer.html     # Interface analyse IA (NOUVEAU)
-    /base.html         # Template de base
-/static/               # Fichiers CSS/JS
-/instance/uploads/     # Fichiers uploadés
-/tmp/                  # Fichiers temporaires et générés
-config.py              # Configuration
-main.py                # Point d'entrée
-requirements.txt       # Dépendances Python
-CHANGELOG.md          # Historique des modifications
-README.md / README_EN.md  # Documentation FR/EN
-DEPLOYMENT.md         # Guide de déploiement
-```
-
-## Fonctionnalités
-
-### 1. Téléchargement Massif & ZIP
-- **10,000+ documents supportés** avec traitement par batch optimisé (50 URLs par batch)
-- **Téléchargement parallèle** : 20 workers simultanés avec ThreadPoolExecutor
-- **Retry automatique** : 3 tentatives avec backoff exponentiel plafonné à 10s
-- **Timeout optimisé** : (30, 300) secondes (connexion, lecture) par document
-- **Gestion robuste des erreurs** : logs détaillés, gestion par type d'erreur, rapports d'échec
-- **Double entrée** : Coller des liens texte OU uploader un fichier CSV
-- **Validation des fichiers** : Vérification de la taille (min 100 bytes)
-- **Noms de fichiers sécurisés** : Numérotation avec zfill(6) pour éviter les conflits
-- Nettoyage automatique du ZIP après téléchargement
-
-### 2. Fusion de PDFs
-- **Upload illimité** : Aucune restriction de taille, volume ou nombre de fichiers
-- **Streaming upload** : Lecture par chunks pour économiser la mémoire
-- **Fusion automatique** : Combine tous les PDFs du ZIP en un seul document
-- **Génération Excel** : Métadonnées détaillées (nombre de pages, nom de fichier, etc.)
-- Nettoyage automatique des fichiers après téléchargement
-
-### 3. Analyse Intelligente par IA (NOUVEAU - 15 octobre 2025)
-- **Trois types d'inputs supportés** :
-  - CSV de liens PDF (pour analyser des PDFs en ligne)
-  - ZIP de plusieurs PDFs (pour analyser des fichiers locaux en batch)
-  - Un seul fichier PDF (pour une analyse simple)
-- **Analyse intelligente avec OpenRouter API** :
-  - Extraction automatique de texte de chaque PDF
-  - Reconnaissance du type de document (rapport, facture, contrat, etc.)
-  - Extraction d'entités (organisations, personnes mentionnées)
-  - Extraction de dates et mots-clés importants
-  - Génération de résumés automatiques
-  - Détection de champs personnalisés
-- **Base de données Excel exportable** :
-  - Feuille de synthèse avec statut d'analyse et métadonnées
-  - Feuilles séparées pour chaque tableau extrait
-  - Feuilles d'informations clés pour chaque PDF
-- **Traitement parallèle** : Analyse de plusieurs PDFs simultanément (5 workers)
-- Nettoyage automatique des fichiers après téléchargement
-
-## Gestion des Fichiers Temporaires
-- **Téléchargement & ZIP**: Le fichier ZIP est automatiquement supprimé après téléchargement
-- **Fusion & Analyse**: Les fichiers (PDF fusionné et Excel d'analyse) sont supprimés immédiatement après téléchargement
-- **Streaming upload**: Les uploads sont écrits directement sur disque par chunks pour économiser la mémoire
-- **Nettoyage automatique**: Tous les fichiers temporaires sont supprimés après traitement
-
-## Performance & Robustesse
-- **Téléchargement massif**: Support pour 1000+ documents via batching optimisé (50 URLs par batch)
-- **Upload illimité**: Aucune restriction de taille grâce au streaming et suppression de MAX_CONTENT_LENGTH
-- **Parallélisation**: 20 workers simultanés pour téléchargements optimisés
-- **Retry logic**: 3 tentatives avec backoff exponentiel plafonné à 10s
-- **Timeout**: (30, 300) secondes (connexion, lecture) pour téléchargements fiables
-- **Gestion d'erreurs robuste**: Validation des fichiers, gestion par type d'exception, fallbacks garantis
-
-## Configuration Requise
-- **SECRET_KEY**: Clé secrète Flask (obligatoire)
-- **OPENROUTER_API_KEY**: Clé API OpenRouter pour analyse intelligente (OBLIGATOIRE)
-  - Nécessaire pour l'analyse IA des PDFs
-  - Disponible sur https://openrouter.ai/
-- **ADMIN_SECRET**: Secret pour mise à jour Git (OBLIGATOIRE en production)
-  - Nécessaire pour accéder à la fonctionnalité de mise à jour du code
-  - Protège l'accès à la route /git_pull
-
-## Préférences Utilisateur
+## User Preferences
 - Interface en français
 - Interface professionnelle avec Tailwind CSS
 
-## Changements Récents
-- **22 octobre 2025 (Version 3.5 - Gestion Avancée du Téléchargement Automatique et Sécurité)** :
-  - ✅ **Téléchargement automatique robuste** :
-    - Rechargement de session.json depuis le disque pour robustesse après redémarrage
-    - Skip automatique des lots déjà complétés (évite les doublons)
-    - Gestion d'erreur avec continue sur échec (le processus ne s'arrête plus)
-    - Rapport détaillé des lots en échec dans les logs
-    - Persistance complète de l'état pour récupération après crash serveur
-  - ✅ **Téléchargement individuel des lots** :
-    - Nouveau bouton "Télécharger ZIP" pour chaque lot terminé
-    - Route dédiée `/download_batch_zip/<download_id>` sans suppression automatique
-    - Fichiers ZIP conservés pour téléchargements multiples
-    - Interface mise à jour dynamiquement avec remplacement du bouton "Lancer"
-  - ✅ **Mise à jour Git sécurisée** :
-    - Nouvelle route POST `/git_pull` avec authentification par secret
-    - Protection par variable d'environnement `ADMIN_SECRET` (obligatoire)
-    - Vérification dans header `X-Admin-Secret` ou JSON `admin_secret`
-    - Logs des tentatives non autorisées pour traçabilité
-    - Interface utilisateur avec prompt pour saisie du secret
-    - Retour 403 pour accès non autorisés
-  - ✅ **Améliorations de sécurité** :
-    - Élimination de la faille critique d'exécution de commandes git non authentifiées
-    - Documentation complète de ADMIN_SECRET dans Configuration Requise
-    - Système d'authentification robuste avec logging des tentatives d'accès
+## System Architecture
+The application uses a Flask backend with a modular blueprint structure, and an HTML/CSS frontend leveraging Tailwind CSS via CDN. PDF manipulation is handled by `pypdf`, and `openpyxl` is used for Excel file generation. For downloading, `requests` is combined with `ThreadPoolExecutor` for parallel processing. AI capabilities, including intelligent analysis and jurisprudence extraction, are powered by the OpenRouter API (Llama 3.1).
 
-- **16 octobre 2025 (Version 3.4 - Système de Logs Persistants)** :
-  - ✅ **Système de logs persistants avec SQLite** :
-    - Base de données SQLite pour stocker tous les logs d'actions
-    - Enregistrement de tous les événements : démarrages, succès, erreurs
-    - Filtrage par type (download, merger, analyzer) et statut (info, success, error)
-    - Page dédiée `/logs/` pour consulter l'historique complet
-  - ✅ **Intégration complète dans toutes les opérations** :
-    - Téléchargeur : logs au démarrage, succès avec compteurs, erreurs détaillées
-    - Fusion : logs de début, fin avec statistiques, gestion des échecs
-    - Analyse IA : logs pour chaque type d'input, résultats et erreurs
-  - ✅ **Page de contact** :
-    - Nouvelle page `/contact/` avec informations de MOA Digital Agency
-    - Email : moa@myoneart.com
-    - Site web : www.myoneart.com
-  - ✅ **Navigation simplifiée** :
-    - Header avec 3 liens : Accueil, Log, Contact
-    - Interface claire et professionnelle
-  - ✅ **En-têtes de copyright** :
-    - Tous les fichiers Python incluent les informations de développeur
-    - Branding MOA Digital Agency LLC
-  
-- **16 octobre 2025 (Version 3.3 - Améliorations SSE et Gestion des Erreurs)** :
-  - ✅ **SSE ultra-robuste pour gros volumes (2900+ URLs)** :
-    - Système de heartbeat pour maintenir la connexion active
-    - Reconnexion automatique avec 5 tentatives progressives
-    - Correction du bug de payload 'ready' final (comparaison JSON vs références)
-    - Fréquence mise à jour optimisée (0.3s au lieu de 0.5s)
-    - Headers anti-buffering pour streaming fiable
-  - ✅ **Nettoyage automatique des fichiers temporaires** :
-    - Nettoyage automatique au chargement/refresh de la page
-    - Suppression des fichiers > 1h d'ancienneté
-    - Endpoint `/cleanup` dédié pour libérer l'espace
-  - ✅ **Affichage des liens en erreur** :
-    - Liste détaillée des URLs en échec avec messages d'erreur
-    - Interface pliable/dépliable pour consultation facile
-    - Transmission complète des `failed_urls` du backend au frontend
-  
-- **16 octobre 2025 (Version 3.2 - Progression en Temps Réel)** :
-  - ✅ **Progression en temps réel** : Affichage détaillé de l'avancement pour toutes les opérations
-    - Compteur de fichiers traités (ex: 150/3000)
-    - Affichage des lots en cours (ex: Lot 8/150)
-    - Nombre de réussites et d'échecs en temps réel
-    - Barre de progression visuelle avec pourcentage
-    - Messages d'état pour chaque étape du processus
-  - ✅ **Server-Sent Events (SSE)** : Communication en temps réel serveur-client
-  - ✅ **Découpage intelligent automatique** : Analyse et découpage en lots de 20 PDFs
-  - ✅ **Traitement asynchrone** : Téléchargement et analyse en arrière-plan
-  - ✅ **Optimisation mémoire** : Réduction des workers de 20 à 5 pour éviter les crashs
-  - ✅ **Correction erreur "Unexpected token"** : Résolution des plantages serveur
-  - ✅ **Timeout serveur** : Augmentation à 300s pour opérations longues
-  
-- **15 octobre 2025 (Version 3.1 - Améliorations UX et Robustesse)** :
-  - ✅ **Layout responsive amélioré** : 2 blocs en colonnes (Télécharger & Fusionner) + Analyse IA en bas pleine largeur
-  - ✅ **Option CSV pour le téléchargeur** : Possibilité de coller des liens OU uploader un fichier CSV
-  - ✅ **Robustesse 1000+ liens** : Batching optimisé (50/batch), 20 workers, timeout tuple, retry plafonné
-  - ✅ **Extraction PDF complète** : Prompt IA amélioré pour extraire TOUS les éléments (tableaux, texte, métadonnées)
-  - ✅ **Gestion d'erreur robuste** : Valeurs par défaut garanties, fallbacks JSON, aucune KeyError possible
-  - ✅ **Excel enrichi** : Colonnes Type, Entreprise, Pages + feuille de texte complet pour chaque PDF
-  - ✅ **Validation des fichiers** : Vérification de taille, noms sécurisés, gestion des erreurs par type
-  
-- **15 octobre 2025 (Version 3.0 - Analyse Intelligente par IA)** :
-  - ✅ Nouvelle fonctionnalité d'analyse intelligente de PDF avec OpenRouter API
-  - ✅ Support de 3 types d'inputs : CSV de liens, ZIP de PDFs, un seul PDF
-  - ✅ Extraction automatique de données structurées avec IA
-  - ✅ Génération de base de données Excel avec feuilles multiples
-  - ✅ Interface utilisateur avec onglets pour les différents types d'inputs
-  - ✅ Traitement parallèle avec 5 workers pour l'analyse IA
-  - ✅ Gestion d'erreur pour clé API manquante
-  - ✅ Format d'API OpenRouter corrigé selon la documentation officielle
+Key architectural decisions and features include:
+- **Modular Flask Application**: Organized into blueprints for downloader, merger, analyzer, and jurisprudence functionalities.
+- **Robust File Handling**: Supports massive uploads via streaming, handles temporary file cleanup, and uses secured naming conventions.
+- **Parallel Processing**: Utilizes `ThreadPoolExecutor` for efficient parallel downloading (20 workers) and AI analysis (5 workers).
+- **Error Management**: Implements automatic retries with exponential backoff, optimized timeouts, and detailed error logging.
+- **Real-time Feedback**: Integrates Server-Sent Events (SSE) for real-time progress updates, including counters, batch status, and visual progress bars.
+- **Persistent Logging**: Stores all action logs (startups, successes, errors) in an SQLite database, accessible via a dedicated `/logs/` page.
+- **Secure Git Update**: A protected `/git_pull` route, authenticated by `ADMIN_SECRET`, allows for secure code deployment.
+- **UI/UX**: Features a responsive layout with a professional aesthetic provided by Tailwind CSS, including distinct interfaces for each core functionality (downloader, merger, analyzer, jurisprudence extractor).
 
-- **15 octobre 2025 (Version 2.0 - Améliorations majeures)** :
-  - ✅ Téléchargement massif robuste pour 10,000+ documents avec batching
-  - ✅ Upload illimité avec streaming pour fichiers de toute taille
-  - ✅ Retry automatique avec backoff exponentiel
-  - ✅ Timeout étendu à 300 secondes par document
-  - ✅ Parallélisation avec ThreadPoolExecutor (10 workers)
-  - ✅ Documentation complète (CHANGELOG, README FR/EN, DEPLOYMENT, requirements.txt)
-  
-- **15 octobre 2025 (Version 1.0 - Création initiale)** :
-  - Implémentation de la structure Flask avec blueprints
-  - Création de l'interface utilisateur avec Tailwind CSS
-  - Implémentation du téléchargement et compression de PDFs
-  - Implémentation de la fusion de PDFs et génération Excel basique
-  - Gestion automatique des fichiers temporaires
+### Feature Specifications:
+- **Massive Download & ZIP**: Supports 10,000+ documents with optimized batching (50 URLs/batch), parallel downloading, automatic retries, and robust error handling.
+- **PDF Merging**: Allows unlimited uploads, streams data in chunks, automatically merges PDFs from a ZIP, and generates detailed Excel metadata.
+- **Intelligent AI Analysis**: Processes CSVs of links, ZIPs of PDFs, or single PDFs. Extracts document types, entities, dates, keywords, summaries, and custom fields using OpenRouter AI. Exports data into a structured Excel database with multiple sheets.
+- **Jurisprudence Extraction**: Specifically designed to extract over 20 legal fields from judicial PDFs (e.g., reference, jurisdiction, dates, keywords, legal basis, summaries) with output options for Excel and CSV.
+
+## External Dependencies
+- **OpenRouter API**: Used for intelligent PDF analysis and jurisprudence extraction (requires `OPENROUTER_API_KEY`).
+- **pypdf**: Python library for PDF manipulation.
+- **openpyxl**: Python library for reading and writing Excel 2010 xlsx/xlsm/xltx/xltm files.
+- **requests**: Python HTTP library for making web requests (used for downloading PDFs).
+- **Tailwind CSS (CDN)**: For frontend styling.
+- **SQLite**: Used for persistent logging of application events.
