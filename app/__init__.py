@@ -48,12 +48,13 @@ def create_app():
     init_db()
     
     # Enregistrer les blueprints
-    from app.routes import downloader, merger, analyzer, logs, contact
+    from app.routes import downloader, merger, analyzer, logs, contact, jurisprudence
     app.register_blueprint(downloader.bp)
     app.register_blueprint(merger.bp)
     app.register_blueprint(analyzer.bp)
     app.register_blueprint(logs.bp)
     app.register_blueprint(contact.bp)
+    app.register_blueprint(jurisprudence.bp)
     
     from app.routes import main
     app.register_blueprint(main.bp)
