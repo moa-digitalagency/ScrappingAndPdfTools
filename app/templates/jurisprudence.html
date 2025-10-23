@@ -271,7 +271,7 @@ const API_URLS = {
     getSession: "{{ url_for('jurisprudence.get_session', session_id='SESSION_ID') }}".replace('SESSION_ID', ''),
     addPdf: "{{ url_for('jurisprudence.add_pdf') }}",
     analyzeSession: "{{ url_for('jurisprudence.analyze_session') }}",
-    download: "{{ url_for('jurisprudence.download', session_id='SESSION_ID', format='FORMAT') }}".replace('SESSION_ID', '').replace('FORMAT', '')
+    download: "{{ url_for('jurisprudence.download', session_id='SESSION_ID', format_type='FORMAT') }}".replace('SESSION_ID', '').replace('FORMAT', '')
 };
 </script>
 <script src="{{ url_for('static', filename='js/jurisprudence-batch.js') }}"></script>
