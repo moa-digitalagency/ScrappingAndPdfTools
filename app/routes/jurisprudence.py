@@ -12,7 +12,7 @@ import uuid
 import zipfile
 import shutil
 from werkzeug.utils import secure_filename
-from app.services.pdf_jurisprudence_extractor import extract_jurisprudence_from_zip
+from app.services.pdf_jurisprudence_extractor_rule_based import JurisprudenceExtractor
 from app.utils.storage import cleanup_temp_file
 from app.models import (
     add_log, 
@@ -28,9 +28,6 @@ bp = Blueprint('jurisprudence', __name__, url_prefix='/jurisprudence')
 
 @bp.route('/')
 def index():
-    api_key = Config.OPENROUTER_API_KEY
-    if not api_key:
-        return render_template('error_api_key.html', service='jurisprudence')
     return render_template('jurisprudence.html')
 
 @bp.route('/create_session', methods=['POST'])
@@ -167,8 +164,7 @@ def analyze_session():
             for file_info in session['files']:
                 zipf.write(file_info['path'], arcname=file_info['stored_name'])
         
-        result_excel = extract_jurisprudence_from_zip(zip_path, current_app.config['TEMP_FOLDER'], 'excel')
-        result_csv = extract_jurisprudence_from_zip(zip_path, current_app.config['TEMP_FOLDER'], 'csv')
+        result = JurisprudenceExtractor.extract_from_zip_both_formats(zip_path, current_app.config['TEMP_FOLDER'])
         
         if os.path.exists(zip_path):
             os.remove(zip_path)
@@ -178,34 +174,34 @@ def analyze_session():
         
         delete_upload_session(session_id)
         
-        if result_excel['success'] and result_csv['success']:
+        if result['success']:
             result_session_id = str(uuid.uuid4())
             save_jurisprudence_session(
                 result_session_id,
-                result_excel['output_path'],
-                result_csv['output_path'],
-                result_excel['filename'],
-                result_csv['filename'],
-                result_excel['total'],
-                result_excel['successful'],
-                result_excel['failed']
+                result['excel_path'],
+                result['csv_path'],
+                result['excel_filename'],
+                result['csv_filename'],
+                result['total'],
+                result['successful'],
+                result['failed']
             )
             
             add_log(
                 'jurisprudence',
-                f'Analyse terminée: {result_excel["successful"]} documents traités avec succès, {result_excel["failed"]} échecs',
+                f'Analyse terminée: {result["successful"]} documents traités avec succès, {result["failed"]} échecs',
                 status='success'
             )
             
             return jsonify({
                 'success': True,
                 'session_id': result_session_id,
-                'total': result_excel['total'],
-                'success_count': result_excel['successful'],
-                'failed_count': result_excel['failed']
+                'total': result['total'],
+                'success_count': result['successful'],
+                'failed_count': result['failed']
             })
         else:
-            error_msg = result_excel.get('error') or result_csv.get('error') or 'Erreur lors de l\'extraction'
+            error_msg = result.get('error', 'Erreur lors de l\'extraction')
             add_log('jurisprudence', f'Échec de l\'analyse: {error_msg}', status='error')
             return jsonify({'success': False, 'error': error_msg}), 500
     
@@ -264,40 +260,39 @@ def process_zip():
         zip_path = os.path.join(current_app.config['TEMP_FOLDER'], f'{uuid.uuid4()}_{zip_filename}')
         zip_file.save(zip_path)
         
-        result_excel = extract_jurisprudence_from_zip(zip_path, current_app.config['TEMP_FOLDER'], 'excel')
-        result_csv = extract_jurisprudence_from_zip(zip_path, current_app.config['TEMP_FOLDER'], 'csv')
+        result = JurisprudenceExtractor.extract_from_zip_both_formats(zip_path, current_app.config['TEMP_FOLDER'])
         
         if os.path.exists(zip_path):
             os.remove(zip_path)
         
-        if result_excel['success'] and result_csv['success']:
+        if result['success']:
             session_id = str(uuid.uuid4())
             save_jurisprudence_session(
                 session_id,
-                result_excel['output_path'],
-                result_csv['output_path'],
-                result_excel['filename'],
-                result_csv['filename'],
-                result_excel['total'],
-                result_excel['successful'],
-                result_excel['failed']
+                result['excel_path'],
+                result['csv_path'],
+                result['excel_filename'],
+                result['csv_filename'],
+                result['total'],
+                result['successful'],
+                result['failed']
             )
             
             add_log(
                 'jurisprudence',
-                f'Extraction terminée: {result_excel["successful"]} documents traités avec succès, {result_excel["failed"]} échecs',
+                f'Extraction terminée: {result["successful"]} documents traités avec succès, {result["failed"]} échecs',
                 status='success'
             )
             
             return jsonify({
                 'success': True,
                 'session_id': session_id,
-                'total': result_excel['total'],
-                'success_count': result_excel['successful'],
-                'failed_count': result_excel['failed']
+                'total': result['total'],
+                'success_count': result['successful'],
+                'failed_count': result['failed']
             })
         else:
-            error_msg = result_excel.get('error') or result_csv.get('error') or 'Erreur lors de l\'extraction'
+            error_msg = result.get('error', 'Erreur lors de l\'extraction')
             add_log('jurisprudence', f'Échec de l\'extraction: {error_msg}', status='error')
             return jsonify({'success': False, 'error': error_msg}), 500
     
