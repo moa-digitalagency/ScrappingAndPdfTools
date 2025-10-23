@@ -24,6 +24,9 @@ analysis_registry = {}
 
 @bp.route('/')
 def index():
+    api_key = os.environ.get('OPENROUTER_API_KEY')
+    if not api_key:
+        return render_template('error_api_key.html', service='analyse intelligente')
     return render_template('analyzer.html')
 
 @bp.route('/process', methods=['POST'])

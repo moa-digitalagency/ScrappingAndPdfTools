@@ -15,106 +15,35 @@ www.myoneart.com
         <h1 class="text-4xl font-bold text-gray-800 mb-3">
             <i class="fas fa-gavel text-amber-600 mr-3"></i>Extraction de Jurisprudence
         </h1>
-        <p class="text-gray-600">Extrayez automatiquement les données de jurisprudence (Ref, Juridiction, Dates, Mots-clés, Base légale, etc.) et créez une base de données Excel ou CSV</p>
+        <p class="text-gray-600">Uploadez un fichier ZIP de PDFs de jurisprudence (jusqu'à 300 MB) et extrayez automatiquement toutes les données juridiques structurées</p>
     </div>
 
     <div class="bg-white rounded-xl shadow-xl p-8">
-        <!-- Tabs -->
-        <div class="flex border-b border-gray-200 mb-6">
-            <button 
-                class="tab-button px-6 py-3 font-semibold transition border-b-2 border-amber-600 text-amber-600" 
-                data-tab="single"
-            >
-                <i class="fas fa-file-pdf mr-2"></i>Un seul PDF
-            </button>
-            <button 
-                class="tab-button px-6 py-3 font-semibold transition border-b-2 border-transparent text-gray-500 hover:text-gray-700" 
-                data-tab="zip"
-            >
-                <i class="fas fa-file-archive mr-2"></i>ZIP de PDFs
-            </button>
-        </div>
-
-        <!-- Tab Content -->
-        <form id="jurisprudenceForm">
-            <!-- Single PDF Tab -->
-            <div class="tab-content" data-tab="single">
-                <div class="mb-6">
-                    <label for="pdf_file" class="block text-lg font-semibold text-gray-700 mb-3">
-                        <i class="fas fa-upload text-amber-600 mr-2"></i>Fichier PDF de jurisprudence
-                    </label>
-                    <input 
-                        type="file" 
-                        id="pdf_file" 
-                        name="pdf_file"
-                        accept=".pdf"
-                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring focus:ring-amber-200 transition"
-                    />
-                    <p class="mt-2 text-sm text-gray-500">
-                        <i class="fas fa-info-circle mr-1"></i>Sélectionnez un PDF de jurisprudence pour extraire ses données.
-                    </p>
-                </div>
-            </div>
-
-            <!-- ZIP Tab -->
-            <div class="tab-content hidden" data-tab="zip">
-                <div class="mb-6">
-                    <label for="zip_file" class="block text-lg font-semibold text-gray-700 mb-3">
-                        <i class="fas fa-upload text-amber-600 mr-2"></i>Fichier ZIP contenant les PDFs de jurisprudence
-                    </label>
-                    <input 
-                        type="file" 
-                        id="zip_file" 
-                        name="zip_file"
-                        accept=".zip"
-                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring focus:ring-amber-200 transition"
-                    />
-                    <p class="mt-2 text-sm text-gray-500">
-                        <i class="fas fa-info-circle mr-1"></i>Le fichier ZIP doit contenir uniquement des PDFs de jurisprudence.
-                    </p>
-                </div>
-            </div>
-
-            <!-- Format Selection -->
+        <form id="jurisprudenceForm" enctype="multipart/form-data">
+            <!-- ZIP Upload -->
             <div class="mb-6">
-                <label class="block text-lg font-semibold text-gray-700 mb-3">
-                    <i class="fas fa-file-export text-amber-600 mr-2"></i>Format de sortie
+                <label for="zip_file" class="block text-lg font-semibold text-gray-700 mb-3">
+                    <i class="fas fa-file-archive text-amber-600 mr-2"></i>Fichier ZIP contenant les PDFs de jurisprudence
                 </label>
-                <div class="flex space-x-4">
-                    <label class="flex items-center cursor-pointer">
-                        <input 
-                            type="radio" 
-                            name="output_format" 
-                            value="excel" 
-                            checked
-                            class="w-5 h-5 text-amber-600 focus:ring-amber-500"
-                        />
-                        <span class="ml-2 text-gray-700">
-                            <i class="fas fa-file-excel text-green-600 mr-1"></i>Excel (.xlsx)
-                        </span>
-                    </label>
-                    <label class="flex items-center cursor-pointer">
-                        <input 
-                            type="radio" 
-                            name="output_format" 
-                            value="csv"
-                            class="w-5 h-5 text-amber-600 focus:ring-amber-500"
-                        />
-                        <span class="ml-2 text-gray-700">
-                            <i class="fas fa-file-csv text-blue-600 mr-1"></i>CSV (.csv)
-                        </span>
-                    </label>
-                </div>
+                <input 
+                    type="file" 
+                    id="zip_file" 
+                    name="zip_file"
+                    accept=".zip"
+                    required
+                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring focus:ring-amber-200 transition"
+                />
+                <p class="mt-2 text-sm text-gray-500">
+                    <i class="fas fa-info-circle mr-1"></i>Maximum 300 MB. Le fichier ZIP doit contenir uniquement des PDFs de jurisprudence.
+                </p>
             </div>
-
-            <input type="hidden" id="input_type" name="input_type" value="single">
 
             <button 
                 type="submit" 
                 id="submitBtn"
                 class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
             >
-                <i class="fas fa-gavel mr-2"></i>Extraire les données de jurisprudence
+                <i class="fas fa-upload mr-2"></i>Uploader et Extraire les données
             </button>
         </form>
 
@@ -127,7 +56,7 @@ www.myoneart.com
                 <div class="bg-amber-600 h-3 rounded-full animate-pulse" style="width: 100%"></div>
             </div>
             <p class="text-center text-gray-600 mt-4">
-                <i class="fas fa-info-circle mr-1"></i>L'extraction peut prendre quelques minutes selon le nombre de PDFs.
+                <i class="fas fa-info-circle mr-1"></i>L'extraction peut prendre plusieurs minutes selon le nombre de PDFs. Veuillez patienter...
             </p>
         </div>
 
@@ -135,19 +64,26 @@ www.myoneart.com
             <h3 class="text-xl font-bold text-green-800 mb-4 flex items-center">
                 <i class="fas fa-check-circle text-green-600 mr-2"></i>Extraction terminée !
             </h3>
-            <div class="space-y-2 mb-4 text-gray-700">
+            <div class="space-y-2 mb-6 text-gray-700">
                 <p><i class="fas fa-file-pdf mr-2 text-gray-600"></i><strong>Total de documents:</strong> <span id="totalCount">0</span></p>
                 <p><i class="fas fa-check mr-2 text-green-600"></i><strong>Traités avec succès:</strong> <span id="successCount">0</span></p>
                 <p><i class="fas fa-times mr-2 text-red-600"></i><strong>Échecs:</strong> <span id="failedCount">0</span></p>
-                <p><i class="fas fa-file mr-2 text-amber-600"></i><strong>Fichier généré:</strong> <span id="fileName">-</span></p>
             </div>
-            <a 
-                id="downloadLink" 
-                href="#" 
-                class="inline-block w-full text-center bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
-            >
-                <i class="fas fa-download mr-2"></i>Télécharger la base de données
-            </a>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <button 
+                    id="downloadExcel" 
+                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
+                >
+                    <i class="fas fa-file-excel mr-2"></i>Télécharger Excel
+                </button>
+                <button 
+                    id="downloadCSV" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
+                >
+                    <i class="fas fa-file-csv mr-2"></i>Télécharger CSV
+                </button>
+            </div>
         </div>
 
         <div id="errorSection" class="hidden mt-8 p-6 bg-red-50 border-2 border-red-300 rounded-lg">
@@ -161,7 +97,7 @@ www.myoneart.com
     <!-- Info Section -->
     <div class="mt-8 bg-blue-50 border-2 border-blue-300 rounded-xl p-6">
         <h3 class="text-xl font-bold text-blue-800 mb-4 flex items-center">
-            <i class="fas fa-info-circle text-blue-600 mr-2"></i>Champs extraits
+            <i class="fas fa-info-circle text-blue-600 mr-2"></i>Champs extraits automatiquement
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-gray-700">
             <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Référence</div>
@@ -173,101 +109,77 @@ www.myoneart.com
             <div><i class="fas fa-check-circle text-green-500 mr-2"></i>N° de dossier</div>
             <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Type de décision</div>
             <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Chambre</div>
-            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Thème</div>
+            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Thème principal</div>
             <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Mots-clés</div>
-            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Base légale (Articles)</div>
-            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Base légale (Lois)</div>
-            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Résumé en français</div>
-            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Résumé en arabe</div>
-            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Source</div>
+            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Articles de loi cités</div>
+            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Lois citées</div>
+            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Résumé français</div>
+            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Résumé arabe</div>
+            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Texte intégral (début)</div>
+            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Source de publication</div>
+            <div><i class="fas fa-check-circle text-green-500 mr-2"></i>Métadonnées (fichier, pages, longueur)</div>
         </div>
     </div>
 </div>
 
 <script>
-    // Tab switching
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const tabContents = document.querySelectorAll('.tab-content');
-    const inputType = document.getElementById('input_type');
-
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const tab = button.getAttribute('data-tab');
-            
-            // Update buttons
-            tabButtons.forEach(btn => {
-                btn.classList.remove('border-amber-600', 'text-amber-600');
-                btn.classList.add('border-transparent', 'text-gray-500');
-            });
-            button.classList.add('border-amber-600', 'text-amber-600');
-            button.classList.remove('border-transparent', 'text-gray-500');
-            
-            // Update content
-            tabContents.forEach(content => {
-                if (content.getAttribute('data-tab') === tab) {
-                    content.classList.remove('hidden');
-                } else {
-                    content.classList.add('hidden');
-                }
-            });
-            
-            // Update hidden input
-            inputType.value = tab;
+document.getElementById('jurisprudenceForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('zip_file');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Veuillez sélectionner un fichier ZIP');
+        return;
+    }
+    
+    if (file.size > 350 * 1024 * 1024) {
+        alert('Le fichier doit faire moins de 350 MB');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('zip_file', file);
+    
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('loadingSection').classList.remove('hidden');
+    document.getElementById('resultSection').classList.add('hidden');
+    document.getElementById('errorSection').classList.add('hidden');
+    
+    try {
+        const response = await fetch('/jurisprudence/process_zip', {
+            method: 'POST',
+            body: formData
         });
-    });
-
-    // Form submission
-    const form = document.getElementById('jurisprudenceForm');
-    const submitBtn = document.getElementById('submitBtn');
-    const loadingSection = document.getElementById('loadingSection');
-    const resultSection = document.getElementById('resultSection');
-    const errorSection = document.getElementById('errorSection');
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
         
-        // Hide previous results
-        resultSection.classList.add('hidden');
-        errorSection.classList.add('hidden');
+        const data = await response.json();
         
-        // Show loading
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Extraction en cours...';
-        loadingSection.classList.remove('hidden');
-        
-        try {
-            const formData = new FormData(form);
+        if (data.success) {
+            document.getElementById('totalCount').textContent = data.total || 0;
+            document.getElementById('successCount').textContent = data.success_count || 0;
+            document.getElementById('failedCount').textContent = data.failed_count || 0;
             
-            const response = await fetch('/jurisprudence/process', {
-                method: 'POST',
-                body: formData
-            });
+            document.getElementById('downloadExcel').onclick = () => {
+                window.location.href = `/jurisprudence/download/${data.session_id}/excel`;
+            };
             
-            const result = await response.json();
+            document.getElementById('downloadCSV').onclick = () => {
+                window.location.href = `/jurisprudence/download/${data.session_id}/csv`;
+            };
             
-            if (result.success) {
-                // Show success
-                document.getElementById('totalCount').textContent = result.total;
-                document.getElementById('successCount').textContent = result.successful;
-                document.getElementById('failedCount').textContent = result.failed;
-                document.getElementById('fileName').textContent = result.filename;
-                document.getElementById('downloadLink').href = `/jurisprudence/download/${result.extraction_id}`;
-                
-                resultSection.classList.remove('hidden');
-            } else {
-                // Show error
-                document.getElementById('errorMessage').textContent = result.error || 'Une erreur est survenue.';
-                errorSection.classList.remove('hidden');
-            }
-        } catch (error) {
-            document.getElementById('errorMessage').textContent = `Erreur: ${error.message}`;
-            errorSection.classList.remove('hidden');
-        } finally {
-            // Hide loading
-            loadingSection.classList.add('hidden');
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-gavel mr-2"></i>Extraire les données de jurisprudence';
+            document.getElementById('resultSection').classList.remove('hidden');
+        } else {
+            document.getElementById('errorMessage').textContent = data.error || 'Une erreur est survenue';
+            document.getElementById('errorSection').classList.remove('hidden');
         }
-    });
+    } catch (error) {
+        document.getElementById('errorMessage').textContent = 'Erreur de connexion: ' + error.message;
+        document.getElementById('errorSection').classList.remove('hidden');
+    } finally {
+        document.getElementById('loadingSection').classList.add('hidden');
+        document.getElementById('submitBtn').disabled = false;
+    }
+});
 </script>
 {% endblock %}

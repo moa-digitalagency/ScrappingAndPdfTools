@@ -1,0 +1,46 @@
+<!--
+PdfTools
+MOA Digital Agency LLC
+Par : Aisance KALONJI
+Mail : moa@myoneart.com
+www.myoneart.com
+-->
+{% extends "base.html" %}
+
+{% block title %}Configuration Requise - PDF Tools{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-red-50 border-2 border-red-300 rounded-xl p-8 text-center">
+        <div class="mb-6">
+            <i class="fas fa-exclamation-triangle text-6xl text-red-600"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-red-800 mb-4">Clé API OpenRouter Manquante</h1>
+        <p class="text-gray-700 mb-6">
+            La fonctionnalité <strong>{{ service|title }}</strong> nécessite une clé API OpenRouter pour fonctionner.
+            Cette clé permet d'utiliser l'intelligence artificielle pour extraire les données des PDFs.
+        </p>
+        
+        <div class="bg-white rounded-lg p-6 mb-6 text-left">
+            <h2 class="text-xl font-bold text-gray-800 mb-3">
+                <i class="fas fa-cog mr-2 text-blue-600"></i>Comment configurer la clé API
+            </h2>
+            <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                <li>Obtenez une clé API gratuite sur <a href="https://openrouter.ai/" target="_blank" class="text-blue-600 hover:underline">openrouter.ai</a></li>
+                <li>Dans Replit, ouvrez l'onglet "Secrets" (icône de cadenas)</li>
+                <li>Ajoutez un nouveau secret:
+                    <ul class="list-disc list-inside ml-6 mt-1">
+                        <li><strong>Clé:</strong> <code class="bg-gray-100 px-2 py-1 rounded">OPENROUTER_API_KEY</code></li>
+                        <li><strong>Valeur:</strong> Votre clé API OpenRouter</li>
+                    </ul>
+                </li>
+                <li>Redémarrez l'application</li>
+            </ol>
+        </div>
+        
+        <a href="/" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition">
+            <i class="fas fa-home mr-2"></i>Retour à l'accueil
+        </a>
+    </div>
+</div>
+{% endblock %}
