@@ -354,9 +354,9 @@ def extract_jurisprudence_from_zip(zip_path, temp_folder, output_format='excel')
         
         logger.info(f"Traitement de {len(pdf_files)} fichiers PDF de jurisprudence")
         
-        # Traiter les PDFs en parallèle
+        # Traiter les PDFs en parallèle (réduit à 2 pour éviter timeout)
         jurisprudence_list = []
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
             futures = {
                 executor.submit(
                     process_single_pdf_jurisprudence,
