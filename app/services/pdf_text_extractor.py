@@ -34,6 +34,10 @@ class PdfTextExtractor:
             
             for i, page in enumerate(reader.pages):
                 page_text = page.extract_text()
+                # PyPDF peut retourner None pour les pages sans texte (images, etc.)
+                if page_text is None:
+                    page_text = ""
+                
                 page_texts.append({
                     'page_number': i + 1,
                     'text': page_text,
@@ -53,14 +57,17 @@ class PdfTextExtractor:
                     'creation_date': reader.metadata.get('/CreationDate', ''),
                 }
             
+            # Nettoyer le texte et calculer les statistiques réelles
+            cleaned_text = full_text.strip()
+            
             return {
                 'success': True,
-                'text': full_text.strip(),
+                'text': cleaned_text,
                 'page_count': len(reader.pages),
                 'pages': page_texts,
                 'metadata': metadata,
-                'total_chars': len(full_text),
-                'total_words': len(full_text.split())
+                'total_chars': len(cleaned_text),
+                'total_words': len(cleaned_text.split()) if cleaned_text else 0
             }
             
         except Exception as e:

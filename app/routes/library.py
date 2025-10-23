@@ -255,27 +255,56 @@ def extract_text_all():
                 'error': 'Aucun PDF dans la bibliothèque'
             }), 400
         
-        all_text = ""
-        successful = 0
-        failed = 0
-        
-        for pdf in pdfs:
-            result = PdfTextExtractor.extract_text_from_pdf(pdf['file_path'])
-            if result['success']:
-                all_text += f"\n\n{'='*80}\n"
-                all_text += f"FICHIER: {pdf['original_name']}\n"
-                all_text += f"{'='*80}\n\n"
-                all_text += result['text']
-                successful += 1
-            else:
-                failed += 1
-        
-        # Sauvegarder dans un fichier
+        # Sauvegarder dans un fichier en streaming pour éviter les problèmes de mémoire
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         output_filename = f"extraction_complete_{timestamp}.txt"
         output_path = os.path.join(EXTRACTED_TEXTS_FOLDER, output_filename)
         
-        PdfTextExtractor.save_text_to_file(all_text, output_path)
+        os.makedirs(EXTRACTED_TEXTS_FOLDER, exist_ok=True)
+        
+        successful = 0
+        failed = 0
+        text_preview = ""
+        
+        with open(output_path, 'w', encoding='utf-8') as output_file:
+            for pdf in pdfs:
+                result = PdfTextExtractor.extract_text_from_pdf(pdf['file_path'])
+                if result['success']:
+                    # Vérifier si du texte a été extrait
+                    if result.get('total_chars', 0) > 0:
+                        header = f"\n\n{'='*80}\nFICHIER: {pdf['original_name']}\n{'='*80}\n\n"
+                        output_file.write(header)
+                        output_file.write(result['text'])
+                        
+                        # Capturer un aperçu du début
+                        if successful == 0 and len(text_preview) < 500:
+                            text_preview = (header + result['text'])[:500]
+                        
+                        successful += 1
+                    else:
+                        # PDF sans texte extractible (probablement images uniquement)
+                        failed += 1
+                        logger.warning(f"Aucun texte extractible pour {pdf['original_name']}")
+                else:
+                    failed += 1
+                    logger.warning(f"Échec de l'extraction pour {pdf['original_name']}: {result.get('error', 'Unknown error')}")
+        
+        # Vérifier si au moins un PDF a produit du texte
+        if successful == 0:
+            # Supprimer le fichier vide
+            if os.path.exists(output_path):
+                os.remove(output_path)
+            
+            add_log('library', f"Extraction complète échouée - Aucun texte extractible", 
+                    details=f"Total: {len(pdfs)}, Tous ont échoué", status='error')
+            
+            return jsonify({
+                'success': False,
+                'error': 'Aucun texte n\'a pu être extrait des PDFs. Ils contiennent peut-être uniquement des images.',
+                'total': len(pdfs),
+                'successful': 0,
+                'failed': failed
+            }), 400
         
         add_log('library', f"Extraction complète de {successful} PDFs", 
                 details=f"Fichier: {output_filename}")
@@ -286,7 +315,7 @@ def extract_text_all():
             'successful': successful,
             'failed': failed,
             'output_file': output_filename,
-            'text_preview': all_text[:500] + '...' if len(all_text) > 500 else all_text
+            'text_preview': text_preview + '...' if len(text_preview) >= 500 else text_preview
         })
         
     except Exception as e:
