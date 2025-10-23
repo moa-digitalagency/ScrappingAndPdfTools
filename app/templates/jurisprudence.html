@@ -395,6 +395,13 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
                 body: formData
             });
             
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`Erreur HTTP ${response.status}:`, errorText);
+                alert(`Erreur lors de l'upload de ${file.name}: ${response.status} - ${response.statusText}`);
+                continue;
+            }
+            
             const data = await response.json();
             
             if (data.success) {
@@ -403,9 +410,11 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
                 updateProgress();
             } else {
                 console.error(`Erreur upload ${file.name}:`, data.error);
+                alert(`Erreur: ${data.error}`);
             }
         } catch (error) {
             console.error(`Erreur upload ${file.name}:`, error);
+            alert(`Erreur: ${error.message}`);
         }
     }
     
