@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block title %}Bibliothèque PDF{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="bg-white rounded-lg shadow-xl p-8 mb-8">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-book text-blue-600 mr-3"></i>
+                    Bibliothèque PDF
+                </h1>
+                <p class="text-gray-600 mt-2">Gérez et extrayez du texte de vos documents PDF</p>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="document.getElementById('fileInput').click()" 
+                        class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold">
+                    <i class="fas fa-upload mr-2"></i>Importer des PDFs
+                </button>
+                <button onclick="extractAllText()" id="extractAllBtn"
+                        class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">
+                    <i class="fas fa-file-export mr-2"></i>Extraire tout
+                </button>
+            </div>
+        </div>
+
+        <input type="file" id="fileInput" multiple accept=".pdf" class="hidden" onchange="uploadFiles()">
+
+        <div id="uploadProgress" class="hidden mb-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-semibold text-blue-800">Upload en cours...</span>
+                    <span id="uploadStatus" class="text-sm text-blue-600">0 / 0</span>
+                </div>
+                <div class="w-full bg-blue-200 rounded-full h-2">
+                    <div id="uploadBar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <div class="flex items-center space-x-4">
+                <button onclick="selectAll()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    <i class="fas fa-check-square mr-2"></i>Tout sélectionner
+                </button>
+                <button onclick="deselectAll()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    <i class="fas fa-square mr-2"></i>Tout désélectionner
+                </button>
+                <button onclick="extractSelected()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                    <i class="fas fa-text-height mr-2"></i>Extraire sélection
+                </button>
+                <button onclick="deleteSelected()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                    <i class="fas fa-trash mr-2"></i>Supprimer sélection
+                </button>
+                <span id="selectedCount" class="text-sm text-gray-600 ml-auto">0 sélectionné(s)</span>
+            </div>
+        </div>
+
+        <div id="pdfList" class="space-y-3">
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-file-pdf text-6xl mb-4 opacity-50"></i>
+                <p>Aucun PDF dans la bibliothèque</p>
+                <p class="text-sm mt-2">Cliquez sur "Importer des PDFs" pour commencer</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="extractModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">
+                <i class="fas fa-file-alt mr-2"></i>Texte extrait
+            </h2>
+            <button onclick="closeExtractModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+        </div>
+        
+        <div id="extractResults" class="space-y-4">
+        </div>
+        
+        <div class="mt-6 flex justify-end">
+            <button onclick="closeExtractModal()" class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let pdfs = [];
+let selectedPdfs = new Set();
+
+async function loadPdfs() {
+    try {
+        const response = await fetch('/library/api/pdfs');
+        const data = await response.json();
+        
+        if (data.success) {
+            pdfs = data.pdfs;
+            renderPdfList();
+        }
+    } catch (error) {
+        showToast('Erreur lors du chargement des PDFs: ' + error.message, 'error');
+    }
+}
+
+function renderPdfList() {
+    const listDiv = document.getElementById('pdfList');
+    
+    if (pdfs.length === 0) {
+        listDiv.innerHTML = `
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-file-pdf text-6xl mb-4 opacity-50"></i>
+                <p>Aucun PDF dans la bibliothèque</p>
+                <p class="text-sm mt-2">Cliquez sur "Importer des PDFs" pour commencer</p>
+            </div>
+        `;
+        return;
+    }
+    
+    listDiv.innerHTML = pdfs.map(pdf => `
+        <div class="bg-gray-50 rounded-lg p-4 flex items-center justify-between hover:bg-gray-100 transition">
+            <div class="flex items-center space-x-4 flex-1">
+                <input type="checkbox" 
+                       id="pdf-${pdf.id}" 
+                       onchange="toggleSelect(${pdf.id})"
+                       ${selectedPdfs.has(pdf.id) ? 'checked' : ''}
+                       class="w-5 h-5 text-blue-600 rounded">
+                <i class="fas fa-file-pdf text-red-500 text-2xl"></i>
+                <div class="flex-1">
+                    <div class="flex items-center space-x-2">
+                        <span id="name-${pdf.id}" class="font-semibold text-gray-800">${pdf.original_name}</span>
+                        <button onclick="editName(${pdf.id})" class="text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        ${formatFileSize(pdf.file_size)} • ${formatDate(pdf.uploaded_at)}
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button onclick="extractSingle(${pdf.id})" 
+                        class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm">
+                    <i class="fas fa-text-height mr-1"></i>Extraire
+                </button>
+                <button onclick="deletePdf(${pdf.id})" 
+                        class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    updateSelectedCount();
+}
+
+function toggleSelect(pdfId) {
+    if (selectedPdfs.has(pdfId)) {
+        selectedPdfs.delete(pdfId);
+    } else {
+        selectedPdfs.add(pdfId);
+    }
+    updateSelectedCount();
+}
+
+function selectAll() {
+    selectedPdfs = new Set(pdfs.map(p => p.id));
+    renderPdfList();
+}
+
+function deselectAll() {
+    selectedPdfs.clear();
+    renderPdfList();
+}
+
+function updateSelectedCount() {
+    document.getElementById('selectedCount').textContent = `${selectedPdfs.size} sélectionné(s)`;
+}
+
+async function uploadFiles() {
+    const input = document.getElementById('fileInput');
+    const files = input.files;
+    
+    if (files.length === 0) return;
+    
+    const progressDiv = document.getElementById('uploadProgress');
+    const statusSpan = document.getElementById('uploadStatus');
+    const progressBar = document.getElementById('uploadBar');
+    
+    progressDiv.classList.remove('hidden');
+    
+    const formData = new FormData();
+    for (let file of files) {
+        formData.append('files[]', file);
+    }
+    
+    statusSpan.textContent = `Upload en cours...`;
+    
+    try {
+        const response = await fetch('/library/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(`${data.count} fichier(s) uploadé(s) avec succès`, 'success');
+            if (data.errors.length > 0) {
+                showToast(`${data.errors.length} erreur(s): ${data.errors.join(', ')}`, 'warning');
+            }
+            await loadPdfs();
+        } else {
+            showToast('Erreur lors de l\'upload: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+    } finally {
+        progressDiv.classList.add('hidden');
+        input.value = '';
+    }
+}
+
+async function editName(pdfId) {
+    const pdf = pdfs.find(p => p.id === pdfId);
+    if (!pdf) return;
+    
+    const newName = prompt('Nouveau nom:', pdf.original_name.replace('.pdf', ''));
+    if (!newName) return;
+    
+    try {
+        const response = await fetch(`/library/api/rename/${pdfId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newName })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Fichier renommé avec succès', 'success');
+            await loadPdfs();
+        } else {
+            showToast('Erreur: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+    }
+}
+
+async function deletePdf(pdfId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce PDF ?')) return;
+    
+    try {
+        const response = await fetch(`/library/api/delete/${pdfId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('PDF supprimé avec succès', 'success');
+            selectedPdfs.delete(pdfId);
+            await loadPdfs();
+        } else {
+            showToast('Erreur: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+    }
+}
+
+async function deleteSelected() {
+    if (selectedPdfs.size === 0) {
+        showToast('Aucun PDF sélectionné', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer ${selectedPdfs.size} PDF(s) ?`)) return;
+    
+    for (const pdfId of selectedPdfs) {
+        try {
+            await fetch(`/library/api/delete/${pdfId}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error(error);
+        }
+    }
+    
+    showToast('PDFs supprimés avec succès', 'success');
+    selectedPdfs.clear();
+    await loadPdfs();
+}
+
+async function extractSingle(pdfId) {
+    await extractText([pdfId]);
+}
+
+async function extractSelected() {
+    if (selectedPdfs.size === 0) {
+        showToast('Aucun PDF sélectionné', 'warning');
+        return;
+    }
+    
+    await extractText(Array.from(selectedPdfs));
+}
+
+async function extractText(pdfIds) {
+    showToast('Extraction en cours...', 'info');
+    
+    try {
+        const response = await fetch('/library/api/extract-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pdf_ids: pdfIds })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayExtractResults(data.results);
+        } else {
+            showToast('Erreur: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+    }
+}
+
+async function extractAllText() {
+    if (pdfs.length === 0) {
+        showToast('Aucun PDF dans la bibliothèque', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Extraire le texte de ${pdfs.length} PDF(s) et sauvegarder dans un fichier ?`)) return;
+    
+    showToast('Extraction complète en cours...', 'info');
+    
+    try {
+        const response = await fetch('/library/api/extract-text-all', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(`Extraction réussie: ${data.successful}/${data.total} PDFs`, 'success');
+            
+            const resultsDiv = document.getElementById('extractResults');
+            resultsDiv.innerHTML = `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                    <h3 class="font-bold text-green-800 mb-3">Extraction complète réussie</h3>
+                    <p class="text-green-700 mb-2">Total: ${data.total} PDFs</p>
+                    <p class="text-green-700 mb-2">Réussi: ${data.successful}</p>
+                    <p class="text-green-700 mb-4">Échoué: ${data.failed}</p>
+                    <a href="/library/api/download-extracted/${data.output_file}" 
+                       class="inline-block px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                        <i class="fas fa-download mr-2"></i>Télécharger le fichier texte
+                    </a>
+                    <div class="mt-4 bg-white p-4 rounded border border-green-200 max-h-64 overflow-y-auto">
+                        <pre class="text-xs text-gray-700 whitespace-pre-wrap">${data.text_preview}</pre>
+                    </div>
+                </div>
+            `;
+            document.getElementById('extractModal').classList.remove('hidden');
+            document.getElementById('extractModal').classList.add('flex');
+        } else {
+            showToast('Erreur: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+    }
+}
+
+function displayExtractResults(results) {
+    const resultsDiv = document.getElementById('extractResults');
+    
+    resultsDiv.innerHTML = results.map(result => {
+        if (result.success) {
+            return `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 class="font-bold text-green-800 mb-2">${result.name}</h3>
+                    <p class="text-sm text-green-700 mb-2">
+                        Pages: ${result.page_count} | Caractères: ${result.total_chars} | Mots: ${result.total_words}
+                    </p>
+                    <div class="bg-white p-3 rounded border border-green-200 max-h-64 overflow-y-auto">
+                        <pre class="text-xs text-gray-700 whitespace-pre-wrap">${result.text}</pre>
+                    </div>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <h3 class="font-bold text-red-800 mb-2">${result.name}</h3>
+                    <p class="text-red-600">Erreur: ${result.error}</p>
+                </div>
+            `;
+        }
+    }).join('');
+    
+    document.getElementById('extractModal').classList.remove('hidden');
+    document.getElementById('extractModal').classList.add('flex');
+}
+
+function closeExtractModal() {
+    document.getElementById('extractModal').classList.add('hidden');
+    document.getElementById('extractModal').classList.remove('flex');
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleString('fr-FR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+document.addEventListener('DOMContentLoaded', loadPdfs);
+</script>
+{% endblock %}

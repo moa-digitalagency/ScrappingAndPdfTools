@@ -78,7 +78,7 @@ def upload_pdfs():
                 try:
                     # Générer un nom de fichier unique
                     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-                    original_name = secure_filename(file.filename)
+                    original_name = secure_filename(file.filename or 'document.pdf')
                     filename = f"{timestamp}_{original_name}"
                     filepath = os.path.join(LIBRARY_FOLDER, filename)
                     
