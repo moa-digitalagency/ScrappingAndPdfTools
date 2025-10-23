@@ -94,6 +94,15 @@ IMPORTANT: Retourne UNIQUEMENT le JSON, sans texte avant ou après, sans ```json
             json=data,
             timeout=90
         )
+        
+        if response.status_code == 404:
+            error_detail = response.text[:500] if len(response.text) > 500 else response.text
+            raise Exception(f"Erreur 404 de l'API OpenRouter. Cela peut signifier: (1) Clé API invalide, (2) Modèle non disponible, ou (3) Endpoint incorrect. Détails: {error_detail}")
+        elif response.status_code == 429:
+            raise Exception("Limite de taux atteinte. Les modèles gratuits sont limités à 50 requêtes/jour (ou 1000/jour avec 10$ de crédits). Veuillez attendre ou acheter des crédits sur https://openrouter.ai")
+        elif response.status_code == 401:
+            raise Exception("Clé API invalide ou expirée. Veuillez vérifier votre clé API OpenRouter.")
+        
         response.raise_for_status()
         
         # Vérifier si la réponse est du JSON valide
