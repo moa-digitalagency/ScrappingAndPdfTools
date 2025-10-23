@@ -9,11 +9,12 @@ www.myoneart.com
 from datetime import datetime
 import sqlite3
 import os
+import json
 
 DATABASE_PATH = os.path.join(os.getcwd(), 'instance', 'logs.db')
 
 def init_db():
-    """Initialise la base de données des logs"""
+    """Initialise la base de données des logs et sessions"""
     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
@@ -27,6 +28,32 @@ def init_db():
             details TEXT,
             user_info TEXT,
             status TEXT NOT NULL
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS upload_sessions (
+            session_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            target_total INTEGER NOT NULL,
+            current_count INTEGER NOT NULL,
+            folder TEXT NOT NULL,
+            files TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS jurisprudence_sessions (
+            session_id TEXT PRIMARY KEY,
+            excel_path TEXT NOT NULL,
+            csv_path TEXT NOT NULL,
+            excel_filename TEXT NOT NULL,
+            csv_filename TEXT NOT NULL,
+            total INTEGER NOT NULL,
+            successful INTEGER NOT NULL,
+            failed INTEGER NOT NULL,
+            created_at TEXT NOT NULL
         )
     ''')
     
@@ -137,3 +164,123 @@ def clear_old_logs(days=30):
     except Exception as e:
         print(f"Erreur lors du nettoyage des logs: {e}")
         return 0
+
+def save_upload_session(session_id, name, target_total, current_count, folder, files):
+    """Sauvegarde ou met à jour une session d'upload"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT OR REPLACE INTO upload_sessions 
+            (session_id, name, target_total, current_count, folder, files, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            session_id,
+            name,
+            target_total,
+            current_count,
+            folder,
+            json.dumps(files),
+            datetime.now().isoformat()
+        ))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde de la session d'upload: {e}")
+        return False
+
+def get_upload_session(session_id):
+    """Récupère une session d'upload"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM upload_sessions WHERE session_id = ?', (session_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                'id': row['session_id'],
+                'name': row['name'],
+                'target_total': row['target_total'],
+                'current_count': row['current_count'],
+                'folder': row['folder'],
+                'files': json.loads(row['files'])
+            }
+        return None
+    except Exception as e:
+        print(f"Erreur lors de la récupération de la session d'upload: {e}")
+        return None
+
+def delete_upload_session(session_id):
+    """Supprime une session d'upload"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM upload_sessions WHERE session_id = ?', (session_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur lors de la suppression de la session d'upload: {e}")
+        return False
+
+def save_jurisprudence_session(session_id, excel_path, csv_path, excel_filename, csv_filename, total, successful, failed):
+    """Sauvegarde une session de résultats jurisprudence"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT OR REPLACE INTO jurisprudence_sessions 
+            (session_id, excel_path, csv_path, excel_filename, csv_filename, total, successful, failed, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            session_id,
+            excel_path,
+            csv_path,
+            excel_filename,
+            csv_filename,
+            total,
+            successful,
+            failed,
+            datetime.now().isoformat()
+        ))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde de la session jurisprudence: {e}")
+        return False
+
+def get_jurisprudence_session(session_id):
+    """Récupère une session de résultats jurisprudence"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM jurisprudence_sessions WHERE session_id = ?', (session_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                'excel_path': row['excel_path'],
+                'csv_path': row['csv_path'],
+                'excel_filename': row['excel_filename'],
+                'csv_filename': row['csv_filename'],
+                'total': row['total'],
+                'successful': row['successful'],
+                'failed': row['failed']
+            }
+        return None
+    except Exception as e:
+        print(f"Erreur lors de la récupération de la session jurisprudence: {e}")
+        return None

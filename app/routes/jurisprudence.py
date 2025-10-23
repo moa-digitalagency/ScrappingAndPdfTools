@@ -14,13 +14,17 @@ import shutil
 from werkzeug.utils import secure_filename
 from app.services.pdf_jurisprudence_extractor import extract_jurisprudence_from_zip
 from app.utils.storage import cleanup_temp_file
-from app.models import add_log
+from app.models import (
+    add_log, 
+    save_upload_session, 
+    get_upload_session, 
+    delete_upload_session,
+    save_jurisprudence_session,
+    get_jurisprudence_session
+)
 from config import Config
 
 bp = Blueprint('jurisprudence', __name__, url_prefix='/jurisprudence')
-
-upload_sessions = {}
-jurisprudence_sessions = {}
 
 @bp.route('/')
 def index():
@@ -43,14 +47,7 @@ def create_session():
         session_folder = os.path.join(current_app.config['TEMP_FOLDER'], f'session_{session_id}')
         os.makedirs(session_folder, exist_ok=True)
         
-        upload_sessions[session_id] = {
-            'id': session_id,
-            'name': name,
-            'target_total': total,
-            'current_count': 0,
-            'folder': session_folder,
-            'files': []
-        }
+        save_upload_session(session_id, name, total, 0, session_folder, [])
         
         add_log('jurisprudence', f'Session créée: {name} (ID: {session_id}, Target: {total} PDFs)', status='info')
         
@@ -66,12 +63,12 @@ def create_session():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/get_session/<session_id>', methods=['GET'])
-def get_session(session_id):
+def get_session_route(session_id):
     try:
-        if session_id not in upload_sessions:
-            return jsonify({'success': False, 'error': 'Session non trouvée'}), 404
+        session = get_upload_session(session_id)
         
-        session = upload_sessions[session_id]
+        if not session:
+            return jsonify({'success': False, 'error': 'Session non trouvée'}), 404
         
         return jsonify({
             'success': True,
@@ -90,10 +87,12 @@ def add_pdf():
     try:
         session_id = request.form.get('session_id')
         
-        if not session_id or session_id not in upload_sessions:
+        if not session_id:
             return jsonify({'success': False, 'error': 'Session invalide'}), 400
         
-        session = upload_sessions[session_id]
+        session = get_upload_session(session_id)
+        if not session:
+            return jsonify({'success': False, 'error': 'Session invalide'}), 400
         
         if session['current_count'] >= session['target_total']:
             return jsonify({'success': False, 'error': 'Nombre maximum de PDFs atteint'}), 400
@@ -121,6 +120,15 @@ def add_pdf():
         })
         session['current_count'] += 1
         
+        save_upload_session(
+            session_id,
+            session['name'],
+            session['target_total'],
+            session['current_count'],
+            session['folder'],
+            session['files']
+        )
+        
         return jsonify({
             'success': True,
             'current_count': session['current_count'],
@@ -137,10 +145,12 @@ def analyze_session():
         data = request.get_json()
         session_id = data.get('session_id')
         
-        if not session_id or session_id not in upload_sessions:
+        if not session_id:
             return jsonify({'success': False, 'error': 'Session invalide'}), 400
         
-        session = upload_sessions[session_id]
+        session = get_upload_session(session_id)
+        if not session:
+            return jsonify({'success': False, 'error': 'Session invalide'}), 400
         
         if session['current_count'] == 0:
             return jsonify({'success': False, 'error': 'Aucun PDF à analyser'}), 400
@@ -166,20 +176,20 @@ def analyze_session():
         if os.path.exists(session['folder']):
             shutil.rmtree(session['folder'])
         
-        if session_id in upload_sessions:
-            del upload_sessions[session_id]
+        delete_upload_session(session_id)
         
         if result_excel['success'] and result_csv['success']:
             result_session_id = str(uuid.uuid4())
-            jurisprudence_sessions[result_session_id] = {
-                'excel_path': result_excel['output_path'],
-                'csv_path': result_csv['output_path'],
-                'excel_filename': result_excel['filename'],
-                'csv_filename': result_csv['filename'],
-                'total': result_excel['total'],
-                'successful': result_excel['successful'],
-                'failed': result_excel['failed']
-            }
+            save_jurisprudence_session(
+                result_session_id,
+                result_excel['output_path'],
+                result_csv['output_path'],
+                result_excel['filename'],
+                result_csv['filename'],
+                result_excel['total'],
+                result_excel['successful'],
+                result_excel['failed']
+            )
             
             add_log(
                 'jurisprudence',
@@ -206,10 +216,10 @@ def analyze_session():
 @bp.route('/download/<session_id>/<format_type>')
 def download(session_id, format_type):
     try:
-        if session_id not in jurisprudence_sessions:
-            return "Session non trouvée", 404
+        session = get_jurisprudence_session(session_id)
         
-        session = jurisprudence_sessions[session_id]
+        if not session:
+            return "Session non trouvée", 404
         
         if format_type == 'excel':
             file_path = session['excel_path']
@@ -262,15 +272,16 @@ def process_zip():
         
         if result_excel['success'] and result_csv['success']:
             session_id = str(uuid.uuid4())
-            jurisprudence_sessions[session_id] = {
-                'excel_path': result_excel['output_path'],
-                'csv_path': result_csv['output_path'],
-                'excel_filename': result_excel['filename'],
-                'csv_filename': result_csv['filename'],
-                'total': result_excel['total'],
-                'successful': result_excel['successful'],
-                'failed': result_excel['failed']
-            }
+            save_jurisprudence_session(
+                session_id,
+                result_excel['output_path'],
+                result_csv['output_path'],
+                result_excel['filename'],
+                result_csv['filename'],
+                result_excel['total'],
+                result_excel['successful'],
+                result_excel['failed']
+            )
             
             add_log(
                 'jurisprudence',
