@@ -6,8 +6,11 @@ Service d'extraction de texte depuis des PDFs
 
 import os
 import logging
+import csv
 from pypdf import PdfReader
 from typing import Dict, List
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill
 
 logger = logging.getLogger(__name__)
 
@@ -117,4 +120,147 @@ class PdfTextExtractor:
             return True
         except Exception as e:
             logger.error(f"Erreur lors de la sauvegarde du texte: {e}")
+            return False
+    
+    @staticmethod
+    def export_to_excel(results: List[Dict], output_path: str) -> bool:
+        """
+        Exporte les résultats d'extraction vers Excel
+        
+        Args:
+            results: Liste des résultats d'extraction
+            output_path: Chemin du fichier Excel de sortie
+            
+        Returns:
+            True si réussi, False sinon
+        """
+        try:
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
+            wb = Workbook()
+            
+            # Feuille de résumé
+            ws_summary = wb.active
+            ws_summary.title = "Résumé"
+            
+            # En-têtes pour le résumé
+            headers_summary = ['Fichier', 'Pages', 'Caractères', 'Mots', 'Statut']
+            ws_summary.append(headers_summary)
+            
+            # Style pour les en-têtes
+            header_font = Font(bold=True, color="FFFFFF")
+            header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            
+            for col_num, header in enumerate(headers_summary, 1):
+                cell = ws_summary.cell(row=1, column=col_num)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal='center')
+            
+            # Données du résumé
+            for result in results:
+                if result.get('success'):
+                    ws_summary.append([
+                        result.get('file_name', 'Inconnu'),
+                        result.get('page_count', 0),
+                        result.get('total_chars', 0),
+                        result.get('total_words', 0),
+                        'Réussi'
+                    ])
+                else:
+                    ws_summary.append([
+                        result.get('file_name', 'Inconnu'),
+                        0,
+                        0,
+                        0,
+                        f"Échec: {result.get('error', 'Erreur inconnue')}"
+                    ])
+            
+            # Ajuster la largeur des colonnes
+            for col in ws_summary.columns:
+                max_length = 0
+                column = col[0].column_letter
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                ws_summary.column_dimensions[column].width = adjusted_width
+            
+            # Feuille de texte complet
+            ws_text = wb.create_sheet(title="Texte extrait")
+            ws_text.append(['Fichier', 'Texte'])
+            
+            # Style pour les en-têtes
+            for col_num in range(1, 3):
+                cell = ws_text.cell(row=1, column=col_num)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal='center')
+            
+            for result in results:
+                if result.get('success'):
+                    ws_text.append([
+                        result.get('file_name', 'Inconnu'),
+                        result.get('text', '')
+                    ])
+            
+            # Ajuster la largeur des colonnes
+            ws_text.column_dimensions['A'].width = 30
+            ws_text.column_dimensions['B'].width = 100
+            
+            wb.save(output_path)
+            return True
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'export Excel: {e}")
+            return False
+    
+    @staticmethod
+    def export_to_csv(results: List[Dict], output_path: str) -> bool:
+        """
+        Exporte les résultats d'extraction vers CSV
+        
+        Args:
+            results: Liste des résultats d'extraction
+            output_path: Chemin du fichier CSV de sortie
+            
+        Returns:
+            True si réussi, False sinon
+        """
+        try:
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
+            with open(output_path, 'w', newline='', encoding='utf-8-sig') as csvfile:
+                fieldnames = ['Fichier', 'Pages', 'Caractères', 'Mots', 'Statut', 'Texte']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                
+                writer.writeheader()
+                
+                for result in results:
+                    if result.get('success'):
+                        writer.writerow({
+                            'Fichier': result.get('file_name', 'Inconnu'),
+                            'Pages': result.get('page_count', 0),
+                            'Caractères': result.get('total_chars', 0),
+                            'Mots': result.get('total_words', 0),
+                            'Statut': 'Réussi',
+                            'Texte': result.get('text', '')
+                        })
+                    else:
+                        writer.writerow({
+                            'Fichier': result.get('file_name', 'Inconnu'),
+                            'Pages': 0,
+                            'Caractères': 0,
+                            'Mots': 0,
+                            'Statut': f"Échec: {result.get('error', 'Erreur inconnue')}",
+                            'Texte': ''
+                        })
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'export CSV: {e}")
             return False

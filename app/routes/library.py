@@ -325,6 +325,104 @@ def extract_text_all():
             'error': str(e)
         }), 500
 
+@bp.route('/api/extract-export-excel', methods=['POST'])
+def extract_export_excel():
+    """Extraire le texte et exporter en Excel"""
+    try:
+        data = request.get_json()
+        pdf_ids = data.get('pdf_ids', [])
+        
+        if not pdf_ids:
+            return jsonify({
+                'success': False,
+                'error': 'Aucun PDF sélectionné'
+            }), 400
+        
+        # Extraire le texte de tous les PDFs sélectionnés
+        results = []
+        for pdf_id in pdf_ids:
+            pdf = get_library_pdf_by_id(pdf_id)
+            if not pdf:
+                continue
+            
+            result = PdfTextExtractor.extract_text_from_pdf(pdf['file_path'])
+            result['file_name'] = pdf['original_name']
+            results.append(result)
+        
+        # Exporter en Excel
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        excel_filename = f"extraction_excel_{timestamp}.xlsx"
+        excel_path = os.path.join(EXTRACTED_TEXTS_FOLDER, excel_filename)
+        
+        if PdfTextExtractor.export_to_excel(results, excel_path):
+            add_log('library', f"Export Excel de {len(pdf_ids)} PDFs", details=excel_filename)
+            return jsonify({
+                'success': True,
+                'filename': excel_filename,
+                'total': len(results)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Erreur lors de l\'export Excel'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Erreur lors de l'export Excel: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/api/extract-export-csv', methods=['POST'])
+def extract_export_csv():
+    """Extraire le texte et exporter en CSV"""
+    try:
+        data = request.get_json()
+        pdf_ids = data.get('pdf_ids', [])
+        
+        if not pdf_ids:
+            return jsonify({
+                'success': False,
+                'error': 'Aucun PDF sélectionné'
+            }), 400
+        
+        # Extraire le texte de tous les PDFs sélectionnés
+        results = []
+        for pdf_id in pdf_ids:
+            pdf = get_library_pdf_by_id(pdf_id)
+            if not pdf:
+                continue
+            
+            result = PdfTextExtractor.extract_text_from_pdf(pdf['file_path'])
+            result['file_name'] = pdf['original_name']
+            results.append(result)
+        
+        # Exporter en CSV
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        csv_filename = f"extraction_csv_{timestamp}.csv"
+        csv_path = os.path.join(EXTRACTED_TEXTS_FOLDER, csv_filename)
+        
+        if PdfTextExtractor.export_to_csv(results, csv_path):
+            add_log('library', f"Export CSV de {len(pdf_ids)} PDFs", details=csv_filename)
+            return jsonify({
+                'success': True,
+                'filename': csv_filename,
+                'total': len(results)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Erreur lors de l\'export CSV'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Erreur lors de l'export CSV: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @bp.route('/api/download-extracted/<filename>')
 def download_extracted(filename):
     """Télécharger un fichier texte extrait"""

@@ -40,18 +40,24 @@
         </div>
 
         <div class="mb-6">
-            <div class="flex items-center space-x-4">
-                <button onclick="selectAll()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+            <div class="flex items-center space-x-2 flex-wrap gap-2">
+                <button onclick="selectAll()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm">
                     <i class="fas fa-check-square mr-2"></i>Tout sélectionner
                 </button>
-                <button onclick="deselectAll()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                <button onclick="deselectAll()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm">
                     <i class="fas fa-square mr-2"></i>Tout désélectionner
                 </button>
-                <button onclick="extractSelected()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                <button onclick="extractSelected()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm">
                     <i class="fas fa-text-height mr-2"></i>Extraire sélection
                 </button>
-                <button onclick="deleteSelected()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
-                    <i class="fas fa-trash mr-2"></i>Supprimer sélection
+                <button onclick="exportExcel()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm">
+                    <i class="fas fa-file-excel mr-2"></i>Export Excel
+                </button>
+                <button onclick="exportCSV()" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition text-sm">
+                    <i class="fas fa-file-csv mr-2"></i>Export CSV
+                </button>
+                <button onclick="deleteSelected()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm">
+                    <i class="fas fa-trash mr-2"></i>Supprimer
                 </button>
                 <span id="selectedCount" class="text-sm text-gray-600 ml-auto">0 sélectionné(s)</span>
             </div>
@@ -411,6 +417,64 @@ function displayExtractResults(results) {
 function closeExtractModal() {
     document.getElementById('extractModal').classList.add('hidden');
     document.getElementById('extractModal').classList.remove('flex');
+}
+
+async function exportExcel() {
+    if (selectedPdfs.size === 0) {
+        showToast('Aucun PDF sélectionné', 'warning');
+        return;
+    }
+    
+    showToast('Export Excel en cours...', 'info');
+    
+    try {
+        const response = await fetch('/library/api/extract-export-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pdf_ids: Array.from(selectedPdfs) })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(`Export Excel réussi: ${data.total} PDF(s)`, 'success');
+            // Télécharger le fichier
+            window.location.href = `/library/api/download-extracted/${data.filename}`;
+        } else {
+            showToast('Erreur: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+    }
+}
+
+async function exportCSV() {
+    if (selectedPdfs.size === 0) {
+        showToast('Aucun PDF sélectionné', 'warning');
+        return;
+    }
+    
+    showToast('Export CSV en cours...', 'info');
+    
+    try {
+        const response = await fetch('/library/api/extract-export-csv', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pdf_ids: Array.from(selectedPdfs) })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(`Export CSV réussi: ${data.total} PDF(s)`, 'success');
+            // Télécharger le fichier
+            window.location.href = `/library/api/download-extracted/${data.filename}`;
+        } else {
+            showToast('Erreur: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+    }
 }
 
 function formatFileSize(bytes) {
