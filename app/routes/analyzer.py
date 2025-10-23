@@ -17,6 +17,7 @@ from app.services.pdf_intelligent_analyzer import (
 )
 from app.utils.storage import cleanup_temp_file
 from app.models import add_log
+from config import Config
 
 bp = Blueprint('analyzer', __name__, url_prefix='/analyzer')
 
@@ -24,7 +25,8 @@ analysis_registry = {}
 
 @bp.route('/')
 def index():
-    api_key = os.environ.get('OPENROUTER_API_KEY')
+    # Charger la clé API depuis .env (VPS) ou secrets Replit
+    api_key = Config.OPENROUTER_API_KEY
     if not api_key:
         return render_template('error_api_key.html', service='analyse intelligente')
     return render_template('analyzer.html')

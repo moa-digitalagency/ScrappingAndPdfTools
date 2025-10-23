@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import zipfile
 import csv
 import io
+from config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -309,11 +310,12 @@ def create_jurisprudence_csv(jurisprudence_list, temp_folder):
 
 def extract_jurisprudence_from_zip(zip_path, temp_folder, output_format='excel'):
     """Extrait la jurisprudence depuis un ZIP de PDFs"""
-    api_key = os.environ.get('OPENROUTER_API_KEY')
+    # Charger la clé API depuis .env (VPS) ou secrets Replit
+    api_key = Config.OPENROUTER_API_KEY
     if not api_key:
         return {
             'success': False,
-            'error': 'Clé API OpenRouter non configurée. Veuillez configurer OPENROUTER_API_KEY dans les secrets.'
+            'error': 'Clé API OpenRouter non configurée. Veuillez configurer OPENROUTER_API_KEY dans les secrets ou le fichier .env.'
         }
     
     try:
@@ -384,11 +386,12 @@ def extract_jurisprudence_from_zip(zip_path, temp_folder, output_format='excel')
 
 def extract_jurisprudence_from_single_pdf(pdf_path, temp_folder, filename, output_format='excel'):
     """Extrait la jurisprudence depuis un seul PDF"""
-    api_key = os.environ.get('OPENROUTER_API_KEY')
+    # Charger la clé API depuis .env (VPS) ou secrets Replit
+    api_key = Config.OPENROUTER_API_KEY
     if not api_key:
         return {
             'success': False,
-            'error': 'Clé API OpenRouter non configurée. Veuillez configurer OPENROUTER_API_KEY dans les secrets.'
+            'error': 'Clé API OpenRouter non configurée. Veuillez configurer OPENROUTER_API_KEY dans les secrets ou le fichier .env.'
         }
     
     try:

@@ -12,6 +12,7 @@ import logging
 from pypdf import PdfReader
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
+from config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -108,11 +109,12 @@ Si certaines informations ne sont pas disponibles, utilisez "N/A"."""
 def analyze_pdfs_and_create_database(pdf_files, temp_folder):
     """Analyse plusieurs PDFs et crée une base de données Excel exportable"""
     
-    api_key = os.environ.get('OPENROUTER_API_KEY')
+    # Charger la clé API depuis .env (VPS) ou secrets Replit
+    api_key = Config.OPENROUTER_API_KEY
     if not api_key:
         return {
             'success': False,
-            'error': 'Clé API OpenRouter non configurée. Veuillez configurer OPENROUTER_API_KEY dans les secrets.'
+            'error': 'Clé API OpenRouter non configurée. Veuillez configurer OPENROUTER_API_KEY dans les secrets ou le fichier .env.'
         }
     
     analyses = []

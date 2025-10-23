@@ -13,6 +13,7 @@ from werkzeug.utils import secure_filename
 from app.services.pdf_jurisprudence_extractor import extract_jurisprudence_from_zip
 from app.utils.storage import cleanup_temp_file
 from app.models import add_log
+from config import Config
 
 bp = Blueprint('jurisprudence', __name__, url_prefix='/jurisprudence')
 
@@ -20,7 +21,8 @@ jurisprudence_sessions = {}
 
 @bp.route('/')
 def index():
-    api_key = os.environ.get('OPENROUTER_API_KEY')
+    # Charger la clé API depuis .env (VPS) ou secrets Replit
+    api_key = Config.OPENROUTER_API_KEY
     if not api_key:
         return render_template('error_api_key.html', service='jurisprudence')
     return render_template('jurisprudence.html')

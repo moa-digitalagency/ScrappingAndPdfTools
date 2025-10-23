@@ -19,11 +19,13 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 from app.utils.progress import progress_manager
+from config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+# Charger la clé API depuis .env (VPS) ou secrets Replit
+OPENROUTER_API_KEY = Config.OPENROUTER_API_KEY
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
 def analyze_pdf_with_openrouter(pdf_source, source_type='url', model='anthropic/claude-3.5-sonnet', filename='document.pdf'):
