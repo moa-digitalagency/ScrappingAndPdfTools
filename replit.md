@@ -18,7 +18,7 @@ Key architectural decisions and features include:
 - **Real-time Feedback**: Integrates Server-Sent Events (SSE) for real-time progress updates, including counters, batch status, and visual progress bars.
 - **Persistent Logging**: Stores all action logs (startups, successes, errors) in an SQLite database, accessible via a dedicated `/logs/` page.
 - **Secure Git Update**: A protected `/git_pull` route, authenticated by `ADMIN_SECRET`, allows for secure code deployment.
-- **UI/UX**: Features a responsive layout with a professional aesthetic provided by Tailwind CSS, including distinct interfaces for each core functionality (downloader, merger, analyzer, jurisprudence extractor, PDF library). The Library feature is now integrated as a main feature card on the homepage rather than a navigation link, providing better visibility and user flow.
+- **UI/UX**: Features a responsive layout with a professional aesthetic provided by Tailwind CSS, including distinct interfaces for each core functionality (downloader, merger, analyzer, jurisprudence extractor, PDF library). The Library feature is integrated as a main feature card on the homepage rather than a navigation link, providing better visibility and user flow. The Library interface has been simplified with 4 clear primary actions: Import PDFs, Extract to Excel, Extract to CSV, and Delete.
 
 ### Feature Specifications:
 - **Massive Download & ZIP**: Supports 10,000+ documents with optimized batching (50 URLs/batch), parallel downloading, automatic retries, and robust error handling.
