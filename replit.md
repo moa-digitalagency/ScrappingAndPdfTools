@@ -31,12 +31,12 @@ Key architectural decisions and features include:
   - Intelligent failure detection - reports error when all PDFs fail
   - Progressive upload support for unlimited file volumes without timeouts
   - Comprehensive error handling and logging
-- **PDF Library**: Complete PDF management system with unlimited file imports, renaming, deletion, individual or bulk selection, and robust text extraction using PyPDF. Features:
+- **PDF Library**: Complete PDF management system with unlimited file imports, renaming, deletion, individual or bulk selection, and structured jurisprudence data extraction. Features:
   - **Preview-First Upload**: Users can preview selected PDFs before uploading, remove unwanted files, and see total size
   - **Progressive Upload**: Each PDF is uploaded individually (1-by-1) with real-time progress tracking
-  - **Flexible Export**: Extract and export text to Excel or CSV formats from selected PDFs
+  - **Structured Jurisprudence Export**: Extract and export structured jurisprudence data (Ref, Juridiction, Date de décision, Thème, Mots-clés, etc.) to Excel or CSV formats from selected PDFs using the same robust rule-based extraction engine
   - Streaming-based batch processing to handle large volumes without memory issues
-  - Intelligent error handling for image-only PDFs and automatic validation of extracted content
+  - Intelligent error handling for extraction failures and automatic validation of extracted content
   - All imported PDFs are stored persistently in a SQLite database with full metadata tracking
 
 ## External Dependencies
