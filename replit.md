@@ -18,7 +18,7 @@ Key architectural decisions and features include:
 - **Real-time Feedback**: Integrates Server-Sent Events (SSE) for real-time progress updates, including counters, batch status, and visual progress bars.
 - **Persistent Logging**: Stores all action logs (startups, successes, errors) in an SQLite database, accessible via a dedicated `/logs/` page.
 - **Secure Git Update**: A protected `/git_pull` route, authenticated by `ADMIN_SECRET`, allows for secure code deployment.
-- **UI/UX**: Features a responsive layout with a professional aesthetic provided by Tailwind CSS, including distinct interfaces for each core functionality (downloader, merger, analyzer, jurisprudence extractor, PDF library).
+- **UI/UX**: Features a responsive layout with a professional aesthetic provided by Tailwind CSS, including distinct interfaces for each core functionality (downloader, merger, analyzer, jurisprudence extractor, PDF library). The Library feature is now integrated as a main feature card on the homepage rather than a navigation link, providing better visibility and user flow.
 
 ### Feature Specifications:
 - **Massive Download & ZIP**: Supports 10,000+ documents with optimized batching (50 URLs/batch), parallel downloading, automatic retries, and robust error handling.
@@ -31,7 +31,13 @@ Key architectural decisions and features include:
   - Intelligent failure detection - reports error when all PDFs fail
   - Progressive upload support for unlimited file volumes without timeouts
   - Comprehensive error handling and logging
-- **PDF Library**: Complete PDF management system with unlimited file imports, renaming, deletion, individual or bulk selection, and robust text extraction using PyPDF. Includes streaming-based batch processing to handle large volumes without memory issues, intelligent error handling for image-only PDFs, and automatic validation of extracted content. All imported PDFs are stored persistently in a SQLite database with full metadata tracking.
+- **PDF Library**: Complete PDF management system with unlimited file imports, renaming, deletion, individual or bulk selection, and robust text extraction using PyPDF. Features:
+  - **Preview-First Upload**: Users can preview selected PDFs before uploading, remove unwanted files, and see total size
+  - **Progressive Upload**: Each PDF is uploaded individually (1-by-1) with real-time progress tracking
+  - **Flexible Export**: Extract and export text to Excel or CSV formats from selected PDFs
+  - Streaming-based batch processing to handle large volumes without memory issues
+  - Intelligent error handling for image-only PDFs and automatic validation of extracted content
+  - All imported PDFs are stored persistently in a SQLite database with full metadata tracking
 
 ## External Dependencies
 - **pypdf**: Python library for PDF manipulation.
