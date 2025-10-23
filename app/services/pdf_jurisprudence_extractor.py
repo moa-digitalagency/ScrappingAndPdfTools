@@ -96,7 +96,20 @@ IMPORTANT: Retourne UNIQUEMENT le JSON, sans texte avant ou après, sans ```json
         )
         response.raise_for_status()
         
-        result = response.json()
+        # Vérifier si la réponse est du JSON valide
+        try:
+            result = response.json()
+        except json.JSONDecodeError:
+            # La réponse n'est pas du JSON (probablement du HTML)
+            error_preview = response.text[:500] if len(response.text) > 500 else response.text
+            logger.error(f"Réponse non-JSON de l'API: {error_preview}")
+            raise Exception(f"L'API a renvoyé une réponse invalide (HTML au lieu de JSON). Cela peut indiquer un problème de quota ou de limite de taux. Réponse: {error_preview}")
+        
+        # Vérifier que la structure de la réponse est correcte
+        if 'choices' not in result or not result['choices']:
+            error_msg = result.get('error', {}).get('message', 'Structure de réponse invalide')
+            raise Exception(f"Erreur de l'API OpenRouter: {error_msg}")
+        
         ai_response = result['choices'][0]['message']['content']
         
         # Nettoyer la réponse
