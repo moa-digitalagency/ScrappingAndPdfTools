@@ -57,6 +57,17 @@ def init_db():
         )
     ''')
     
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS library_pdfs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            original_name TEXT NOT NULL,
+            stored_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            uploaded_at TEXT NOT NULL
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
@@ -284,3 +295,108 @@ def get_jurisprudence_session(session_id):
     except Exception as e:
         print(f"Erreur lors de la récupération de la session jurisprudence: {e}")
         return None
+
+def add_library_pdf(original_name, stored_name, file_path, file_size):
+    """Ajoute un PDF à la bibliothèque"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO library_pdfs (original_name, stored_name, file_path, file_size, uploaded_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (
+            original_name,
+            stored_name,
+            file_path,
+            file_size,
+            datetime.now().isoformat()
+        ))
+        
+        pdf_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return pdf_id
+    except Exception as e:
+        print(f"Erreur lors de l'ajout du PDF: {e}")
+        return None
+
+def get_library_pdfs():
+    """Récupère tous les PDFs de la bibliothèque"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM library_pdfs ORDER BY uploaded_at DESC')
+        rows = cursor.fetchall()
+        conn.close()
+        
+        pdfs = []
+        for row in rows:
+            pdfs.append({
+                'id': row['id'],
+                'original_name': row['original_name'],
+                'stored_name': row['stored_name'],
+                'file_path': row['file_path'],
+                'file_size': row['file_size'],
+                'uploaded_at': row['uploaded_at']
+            })
+        
+        return pdfs
+    except Exception as e:
+        print(f"Erreur lors de la récupération des PDFs: {e}")
+        return []
+
+def get_library_pdf_by_id(pdf_id):
+    """Récupère un PDF spécifique par son ID"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM library_pdfs WHERE id = ?', (pdf_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                'id': row['id'],
+                'original_name': row['original_name'],
+                'stored_name': row['stored_name'],
+                'file_path': row['file_path'],
+                'file_size': row['file_size'],
+                'uploaded_at': row['uploaded_at']
+            }
+        return None
+    except Exception as e:
+        print(f"Erreur lors de la récupération du PDF: {e}")
+        return None
+
+def update_library_pdf_name(pdf_id, new_name):
+    """Met à jour le nom d'un PDF"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('UPDATE library_pdfs SET original_name = ? WHERE id = ?', (new_name, pdf_id))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur lors de la mise à jour du nom: {e}")
+        return False
+
+def delete_library_pdf(pdf_id):
+    """Supprime un PDF de la bibliothèque"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM library_pdfs WHERE id = ?', (pdf_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur lors de la suppression du PDF: {e}")
+        return False
