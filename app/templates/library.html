@@ -25,7 +25,31 @@
             </div>
         </div>
 
-        <input type="file" id="fileInput" multiple accept=".pdf" class="hidden" onchange="uploadFiles()">
+        <input type="file" id="fileInput" multiple accept=".pdf" class="hidden" onchange="previewFiles()">
+
+        <div id="filePreview" class="hidden mb-6">
+            <div class="bg-white border-2 border-blue-300 rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">
+                        <i class="fas fa-file-upload mr-2"></i>Fichiers à uploader
+                    </h3>
+                    <div class="flex space-x-2">
+                        <button onclick="confirmUpload()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">
+                            <i class="fas fa-check mr-2"></i>Confirmer
+                        </button>
+                        <button onclick="cancelPreview()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition font-semibold">
+                            <i class="fas fa-times mr-2"></i>Annuler
+                        </button>
+                    </div>
+                </div>
+                <div id="fileList" class="space-y-2 max-h-64 overflow-y-auto">
+                </div>
+                <div class="mt-4 text-sm text-gray-600">
+                    Total: <span id="totalFiles" class="font-bold">0</span> fichier(s) | 
+                    Taille: <span id="totalSize" class="font-bold">0 MB</span>
+                </div>
+            </div>
+        </div>
 
         <div id="uploadProgress" class="hidden mb-6">
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -33,9 +57,10 @@
                     <span class="text-sm font-semibold text-blue-800">Upload en cours...</span>
                     <span id="uploadStatus" class="text-sm text-blue-600">0 / 0</span>
                 </div>
-                <div class="w-full bg-blue-200 rounded-full h-2">
+                <div class="w-full bg-blue-200 rounded-full h-2 mb-3">
                     <div id="uploadBar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
                 </div>
+                <div id="currentFileStatus" class="text-xs text-gray-700"></div>
             </div>
         </div>
 
@@ -100,6 +125,7 @@
 <script>
 let pdfs = [];
 let selectedPdfs = new Set();
+let filesToUpload = [];
 
 async function loadPdfs() {
     try {
@@ -189,48 +215,127 @@ function updateSelectedCount() {
     document.getElementById('selectedCount').textContent = `${selectedPdfs.size} sélectionné(s)`;
 }
 
-async function uploadFiles() {
+function previewFiles() {
     const input = document.getElementById('fileInput');
-    const files = input.files;
+    const files = Array.from(input.files);
     
     if (files.length === 0) return;
+    
+    filesToUpload = files;
+    
+    const fileListDiv = document.getElementById('fileList');
+    const totalFilesSpan = document.getElementById('totalFiles');
+    const totalSizeSpan = document.getElementById('totalSize');
+    
+    let totalSize = 0;
+    
+    fileListDiv.innerHTML = files.map((file, index) => {
+        totalSize += file.size;
+        return `
+            <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-file-pdf text-red-500 text-xl"></i>
+                    <div>
+                        <div class="font-semibold text-gray-800">${file.name}</div>
+                        <div class="text-xs text-gray-500">${formatFileSize(file.size)}</div>
+                    </div>
+                </div>
+                <button onclick="removeFileFromPreview(${index})" class="text-red-500 hover:text-red-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
+    
+    totalFilesSpan.textContent = files.length;
+    totalSizeSpan.textContent = (totalSize / (1024 * 1024)).toFixed(2);
+    
+    document.getElementById('filePreview').classList.remove('hidden');
+}
+
+function removeFileFromPreview(index) {
+    filesToUpload.splice(index, 1);
+    
+    if (filesToUpload.length === 0) {
+        cancelPreview();
+    } else {
+        const dataTransfer = new DataTransfer();
+        filesToUpload.forEach(file => dataTransfer.items.add(file));
+        document.getElementById('fileInput').files = dataTransfer.files;
+        previewFiles();
+    }
+}
+
+function cancelPreview() {
+    document.getElementById('filePreview').classList.add('hidden');
+    document.getElementById('fileInput').value = '';
+    filesToUpload = [];
+}
+
+async function confirmUpload() {
+    if (filesToUpload.length === 0) return;
+    
+    document.getElementById('filePreview').classList.add('hidden');
     
     const progressDiv = document.getElementById('uploadProgress');
     const statusSpan = document.getElementById('uploadStatus');
     const progressBar = document.getElementById('uploadBar');
+    const currentFileStatus = document.getElementById('currentFileStatus');
     
     progressDiv.classList.remove('hidden');
     
-    const formData = new FormData();
-    for (let file of files) {
-        formData.append('files[]', file);
-    }
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
     
-    statusSpan.textContent = `Upload en cours...`;
-    
-    try {
-        const response = await fetch('/library/api/upload', {
-            method: 'POST',
-            body: formData
-        });
+    for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
         
-        const data = await response.json();
+        statusSpan.textContent = `${i + 1} / ${filesToUpload.length}`;
+        currentFileStatus.textContent = `Upload de: ${file.name}`;
+        progressBar.style.width = `${((i + 1) / filesToUpload.length) * 100}%`;
         
-        if (data.success) {
-            showToast(`${data.count} fichier(s) uploadé(s) avec succès`, 'success');
-            if (data.errors.length > 0) {
-                showToast(`${data.errors.length} erreur(s): ${data.errors.join(', ')}`, 'warning');
+        try {
+            const formData = new FormData();
+            formData.append('files[]', file);
+            
+            const response = await fetch('/library/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.uploaded.length > 0) {
+                successCount++;
+            } else {
+                errorCount++;
+                if (data.errors && data.errors.length > 0) {
+                    errors.push(...data.errors);
+                }
             }
-            await loadPdfs();
-        } else {
-            showToast('Erreur lors de l\'upload: ' + data.error, 'error');
+        } catch (error) {
+            errorCount++;
+            errors.push(`${file.name}: ${error.message}`);
         }
-    } catch (error) {
-        showToast('Erreur: ' + error.message, 'error');
-    } finally {
-        progressDiv.classList.add('hidden');
-        input.value = '';
     }
+    
+    progressDiv.classList.add('hidden');
+    document.getElementById('fileInput').value = '';
+    filesToUpload = [];
+    
+    if (successCount > 0) {
+        showToast(`${successCount} fichier(s) uploadé(s) avec succès`, 'success');
+    }
+    
+    if (errorCount > 0) {
+        showToast(`${errorCount} erreur(s) lors de l'upload`, 'error');
+        if (errors.length > 0) {
+            console.error('Erreurs d\'upload:', errors);
+        }
+    }
+    
+    await loadPdfs();
 }
 
 async function editName(pdfId) {
