@@ -11,20 +11,21 @@ This project is a professional Flask web application designed for advanced PDF p
 The application uses a Flask backend with a modular blueprint structure, and an HTML/CSS frontend leveraging Tailwind CSS via CDN. PDF manipulation is handled by `pypdf`, and `openpyxl` is used for Excel file generation. For downloading, `requests` is combined with `ThreadPoolExecutor` for parallel processing. AI capabilities, including intelligent analysis and jurisprudence extraction, are powered by the OpenRouter API (Llama 3.1).
 
 Key architectural decisions and features include:
-- **Modular Flask Application**: Organized into blueprints for downloader, merger, analyzer, and jurisprudence functionalities.
+- **Modular Flask Application**: Organized into blueprints for downloader, merger, analyzer, jurisprudence, and library functionalities.
 - **Robust File Handling**: Supports massive uploads via streaming, handles temporary file cleanup, and uses secured naming conventions.
 - **Parallel Processing**: Utilizes `ThreadPoolExecutor` for efficient parallel downloading (20 workers) and AI analysis (5 workers).
 - **Error Management**: Implements automatic retries with exponential backoff, optimized timeouts, and detailed error logging.
 - **Real-time Feedback**: Integrates Server-Sent Events (SSE) for real-time progress updates, including counters, batch status, and visual progress bars.
 - **Persistent Logging**: Stores all action logs (startups, successes, errors) in an SQLite database, accessible via a dedicated `/logs/` page.
 - **Secure Git Update**: A protected `/git_pull` route, authenticated by `ADMIN_SECRET`, allows for secure code deployment.
-- **UI/UX**: Features a responsive layout with a professional aesthetic provided by Tailwind CSS, including distinct interfaces for each core functionality (downloader, merger, analyzer, jurisprudence extractor).
+- **UI/UX**: Features a responsive layout with a professional aesthetic provided by Tailwind CSS, including distinct interfaces for each core functionality (downloader, merger, analyzer, jurisprudence extractor, PDF library).
 
 ### Feature Specifications:
 - **Massive Download & ZIP**: Supports 10,000+ documents with optimized batching (50 URLs/batch), parallel downloading, automatic retries, and robust error handling.
 - **PDF Merging**: Allows unlimited uploads, streams data in chunks, automatically merges PDFs from a ZIP, and generates detailed Excel metadata.
 - **Intelligent AI Analysis**: Processes CSVs of links, ZIPs of PDFs, or single PDFs. Extracts document types, entities, dates, keywords, summaries, and custom fields using OpenRouter AI. Exports data into a structured Excel database with multiple sheets.
 - **Jurisprudence Extraction**: Specifically designed to extract over 20 legal fields from judicial PDFs (e.g., reference, jurisdiction, dates, keywords, legal basis, summaries) with output options for Excel and CSV.
+- **PDF Library**: Complete PDF management system with unlimited file imports, renaming, deletion, individual or bulk selection, and robust text extraction using PyPDF. Includes streaming-based batch processing to handle large volumes without memory issues, intelligent error handling for image-only PDFs, and automatic validation of extracted content. All imported PDFs are stored persistently in a SQLite database with full metadata tracking.
 
 ## External Dependencies
 - **OpenRouter API**: Used for intelligent PDF analysis and jurisprudence extraction (requires `OPENROUTER_API_KEY`).
