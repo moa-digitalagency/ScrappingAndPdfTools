@@ -62,7 +62,7 @@ Type=notify
 User=votre_user
 WorkingDirectory=/chemin/vers/votre/projet
 Environment="PATH=/chemin/vers/votre/projet/venv/bin"
-ExecStart=/chemin/vers/votre/projet/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 600 --graceful-timeout 600 --limit-request-line 0 --limit-request-field_size 0 main:app
+ExecStart=/chemin/vers/votre/projet/venv/bin/gunicorn --bind 0.0.0.0:5003 --workers 4 --timeout 600 --graceful-timeout 600 --limit-request-line 0 --limit-request-field_size 0 main:app
 Restart=always
 
 [Install]
@@ -94,7 +94,7 @@ module.exports = {
   apps: [{
     name: 'pdftools',
     script: 'venv/bin/gunicorn',
-    args: '--bind 0.0.0.0:5000 --workers 4 --timeout 600 --graceful-timeout 600 --limit-request-line 0 --limit-request-field_size 0 main:app',
+    args: '--bind 0.0.0.0:5003 --workers 4 --timeout 600 --graceful-timeout 600 --limit-request-line 0 --limit-request-field_size 0 main:app',
     cwd: '/chemin/vers/votre/projet',
     env: {
       'PATH': '/chemin/vers/votre/projet/venv/bin:' + process.env.PATH
@@ -120,7 +120,7 @@ server {
     server_name votre-domaine.com;
 
     location / {
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass http://127.0.0.1:5003;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

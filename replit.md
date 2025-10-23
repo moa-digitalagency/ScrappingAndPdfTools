@@ -33,3 +33,7 @@ Key architectural decisions and features include:
 - **requests**: Python HTTP library for making web requests (used for downloading PDFs).
 - **Tailwind CSS (CDN)**: For frontend styling.
 - **SQLite**: Used for persistent logging of application events.
+
+## Deployment Ports
+- **Replit**: Port 5000 (required by Replit infrastructure)
+- **VPS**: Port 5003 (configured in deploy_vps.sh and DEPLOYMENT_VPS.md)

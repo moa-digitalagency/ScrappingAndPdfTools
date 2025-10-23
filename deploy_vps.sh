@@ -72,11 +72,11 @@ sleep 2
 
 # 8. Lancement de l'application avec gunicorn depuis le venv
 echo "🚀 Lancement de l'application..."
-echo "   Port: 5000"
+echo "   Port: 5003"
 echo "   Workers: 4"
 
 # Lancer gunicorn en arrière-plan
-nohup venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 600 --graceful-timeout 600 --limit-request-line 0 --limit-request-field_size 0 --reuse-port main:app > gunicorn.log 2>&1 &
+nohup venv/bin/gunicorn --bind 0.0.0.0:5003 --workers 4 --timeout 600 --graceful-timeout 600 --limit-request-line 0 --limit-request-field_size 0 --reuse-port main:app > gunicorn.log 2>&1 &
 
 # Attendre que l'application démarre
 sleep 3
@@ -87,7 +87,7 @@ if pgrep -f "gunicorn.*main:app" > /dev/null; then
     echo "✅ Déploiement terminé avec succès!"
     echo ""
     echo "📊 Informations:"
-    echo "   - Application lancée sur: http://localhost:5000"
+    echo "   - Application lancée sur: http://localhost:5003"
     echo "   - Logs: tail -f gunicorn.log"
     echo "   - Process ID: $(pgrep -f 'gunicorn.*main:app' | head -1)"
     echo ""
