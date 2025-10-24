@@ -161,6 +161,16 @@ document.getElementById('finishBtn').addEventListener('click', async function() 
             body: JSON.stringify({session_id: currentSession.id})
         });
         
+        if (!response.ok) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Erreur serveur');
+            } else {
+                throw new Error(`Erreur serveur (${response.status}): Le serveur a dépassé le délai d'attente. Pour les gros volumes (>100 PDFs), augmentez les timeouts du serveur.`);
+            }
+        }
+        
         const data = await response.json();
         
         if (data.success) {
